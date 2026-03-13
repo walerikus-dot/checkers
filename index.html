@@ -589,7 +589,8 @@ let peer=null, conn=null, rtcPc=null, rtcDc=null, gistId='';
 function destroyPeer() {
   onlineConnected=false; conn=null; peer=null;
   if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
-  hostCode=''; mySeq=0; lastSeq=0;
+  if(ackTimer){clearInterval(ackTimer);ackTimer=null;}
+  hostCode=''; mySeq=0; lastSeq=0; inboxSeq=0; outbox={};
 }
 
 // role = which queue to write TO (from_host or from_guest)
@@ -702,24 +703,60 @@ function joinGame() {
 }
 
 // ── Move polling ───────────────────────────────────────────────
-// After connected: host reads 'guest' queue, guest reads 'host' queue
+// Reliable delivery: sender keeps retrying until receiver ACKs.
+// outbox = {seq: data} pending ACK. inboxSeq = highest processed seq.
+
+let outbox = {};       // my unACKed messages: {seq: msgObject}
+let inboxSeq = 0;      // highest seq we've processed from opponent
+let ackTimer = null;   // retransmit timer
+
 function startMovePoll() {
   if(pollTimer) clearInterval(pollTimer);
+  if(ackTimer)  clearInterval(ackTimer);
+  outbox = {}; inboxSeq = 0;
+
   const readFrom = onlineRole==='host' ? 'guest' : 'host';
+
+  // Main receive loop
   pollTimer = setInterval(async()=>{
     const msgs = await wRecv(readFrom);
     for(const m of msgs) {
-      if(m.seq !== undefined && m.seq <= lastSeq) continue;
-      if(m.seq !== undefined) lastSeq = m.seq;
+      // Handle ACK from opponent
+      if(m.type==='ack') {
+        if(m.ack !== undefined) {
+          // Remove all outbox entries with seq <= ack
+          for(const k of Object.keys(outbox)) {
+            if(Number(k) <= m.ack) delete outbox[k];
+          }
+        }
+        continue;
+      }
+      // Ignore duplicates
+      if(m.seq !== undefined && m.seq <= inboxSeq) {
+        // Re-send ACK in case ours was lost
+        wSend(onlineRole, {type:'ack', ack: inboxSeq});
+        continue;
+      }
+      if(m.seq !== undefined) inboxSeq = m.seq;
+      // ACK receipt
+      wSend(onlineRole, {type:'ack', ack: inboxSeq});
       handleOnlineData(m);
     }
   }, 1500);
+
+  // Retransmit unACKed messages every 3s
+  ackTimer = setInterval(()=>{
+    for(const msg of Object.values(outbox)) {
+      wSend(onlineRole, msg);
+    }
+  }, 3000);
 }
 
 // Host writes to 'host' queue, guest writes to 'guest' queue
 function sendOnline(data) {
   if(!onlineConnected) return;
   data.seq = ++mySeq;
+  outbox[mySeq] = data;
   wSend(onlineRole, data);
 }
 

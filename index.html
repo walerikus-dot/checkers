@@ -369,4 +369,795 @@
     .mode-bar { gap: 5px; }
     .mode-btn { padding: 5px 8px; font-size: 0.6rem; }
   }
-  .bottom-panel { margin: 12px auto 0; max-width: 600px; width
+  .bottom-panel { margin: 12px auto 0; max-width: 600px; width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px 10px; }
+  .bottom-panel-title { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.15em; text-align: center; margin-bottom: 12px; }
+  .bottom-cols { display: flex; gap: 0; }
+  .bottom-col { flex: 1; padding: 0 12px; }
+  .bottom-col:first-child { padding-left: 0; }
+  .bottom-col:last-child { padding-right: 0; }
+  .bottom-divider { width: 1px; background: var(--border); margin: 0 4px; }
+  .history-list { margin-top: 10px; }
+</style>
+</head>
+<body>
+<script>
+window.onerror = function(msg, src, line, col, err) {
+  document.body.style.background = '#0e0e12';
+  document.body.innerHTML = '<div style="color:#ff6b6b;padding:20px;font-family:monospace;font-size:14px">'
+    + '<b>JS Error:</b><br>' + msg + '<br>Line: ' + line + '</div>';
+  return false;
+};
+</script>
+<div class="app">
+  <header>
+    <h1>Шашки</h1>
+    <p>Classic Board Game</p>
+  </header>
+
+  <div class="mode-bar">
+    <button class="mode-btn active" onclick="setMode('ai')"     id="btn-ai">⚙ Vs компьютер</button>
+    <button class="mode-btn"        onclick="setMode('2p')"     id="btn-2p">👥 2 игрока</button>
+    <button class="mode-btn"        onclick="setMode('online')" id="btn-online">🌐 Онлайн</button>
+  </div>
+
+  <div class="difficulty-bar" id="difficulty-bar">
+    <button class="diff-btn active-easy" onclick="setDifficulty('easy')"   id="diff-easy">🟢 Лёгкий</button>
+    <button class="diff-btn"             onclick="setDifficulty('medium')" id="diff-medium">🟡 Средний</button>
+    <button class="diff-btn"             onclick="setDifficulty('hard')"   id="diff-hard">🔴 Сложный</button>
+  </div>
+
+  <!-- ONLINE PANEL -->
+  <div class="online-panel" id="online-panel">
+    <div class="online-title">🌐 Онлайн игра — прямое P2P соединение, без сервера</div>
+    <div class="online-tabs">
+      <button class="otab active" onclick="switchOnlineTab('host')" id="otab-host">🏠 Создать игру</button>
+      <button class="otab"        onclick="switchOnlineTab('join')" id="otab-join">🔗 Присоединиться</button>
+    </div>
+    <!-- HOST -->
+    <div class="online-section visible" id="osec-host">
+      <div class="code-display">
+        <div class="code-digits" id="host-code">• • • • • •</div>
+        <button class="copy-btn" onclick="copyCode()" id="copy-btn">📋 Копировать</button>
+      </div>
+      <div class="ostat">
+        <div class="osdot waiting" id="host-dot"></div>
+        <span id="host-status-text">Генерация кода…</span>
+      </div>
+    </div>
+    <!-- JOIN -->
+    <div class="online-section" id="osec-join">
+      <div class="code-input-row">
+        <input class="code-input" id="join-input" maxlength="6" placeholder="Введите код (6 цифр)"
+               oninput="this.value=this.value.replace(/\D/g,'')" />
+        <button class="join-btn" onclick="joinGame()" id="join-btn">Войти →</button>
+      </div>
+      <div class="ostat">
+        <div class="osdot idle" id="join-dot"></div>
+        <span id="join-status-text">Введите код хоста и нажмите «Войти»</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="game-layout">
+    <div class="board-wrapper">
+      <div class="board-outer">
+        <!-- Row numbers (left side: 8 top → 1 bottom) -->
+        <div class="coord-row" id="coord-row"></div>
+        <!-- Column letters top -->
+        <div class="coord-col" id="coord-col-top"></div>
+        <div class="board-container">
+          <div class="board" id="board"></div>
+        </div>
+        <!-- Column letters bottom -->
+        <div class="coord-bottom" id="coord-col-bot"></div>
+      </div>
+      <div class="status-bar">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Ход белых</span>
+      </div>
+      <div class="controls">
+        <button class="ctrl-btn primary" onclick="newGame()">↺ Новая игра</button>
+        <button class="ctrl-btn" id="undo-btn" onclick="undoMove()">⟵ Отменить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom info panel -->
+  <div class="bottom-panel">
+    <div class="bottom-panel-title">История</div>
+    <div class="bottom-cols">
+      <div class="bottom-col">
+        <div class="player-info" id="info-black">
+          <div class="player-avatar black"></div>
+          <div class="player-meta">
+            <div class="player-name" id="name-black">Чёрные</div>
+            <div id="diff-badge-display"></div>
+            <div id="online-badge-black" style="display:none"></div>
+            <div class="player-score" id="score-black">12</div>
+            <div class="player-label">фигур</div>
+            <div class="turn-indicator">Ваш ход</div>
+          </div>
+        </div>
+        <div class="panel-label">Захвачено</div>
+        <div class="captured-pieces" id="captured-white"></div>
+      </div>
+      <div class="bottom-divider"></div>
+      <div class="bottom-col">
+        <div class="player-info" id="info-white">
+          <div class="player-avatar white"></div>
+          <div class="player-meta">
+            <div class="player-name" id="name-white">Белые</div>
+            <div id="online-badge-white" style="display:none"></div>
+            <div class="player-score" id="score-white">12</div>
+            <div class="player-label">фигур</div>
+            <div class="turn-indicator">Ваш ход</div>
+          </div>
+        </div>
+        <div class="panel-label">Захвачено</div>
+        <div class="captured-pieces" id="captured-black"></div>
+      </div>
+    </div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="overlay-card">
+    <div class="overlay-emoji" id="overlay-emoji">🏆</div>
+    <div class="overlay-title"  id="overlay-title">Победа!</div>
+    <div class="overlay-sub"    id="overlay-sub">Белые выиграли</div>
+    <button class="ctrl-btn primary" onclick="newGame()">Играть снова</button>
+  </div>
+</div>
+
+<script>
+// ==================== CONSTANTS ====================
+const EMPTY=0, WHITE=1, BLACK=2, WHITE_K=3, BLACK_K=4;
+
+// ==================== GAME STATE ====================
+let board=[], currentTurn=WHITE, selectedCell=null;
+let validMoves=[], gameMode='ai', difficulty='easy';
+let history=[], moveLog=[];
+let capturedByWhite=0, capturedByBlack=0;
+let gameOver=false, aiThinking=false, multiCapture=null;
+
+// ==================== ONLINE STATE ====================
+let onlineRole=null;        // 'host' | 'guest'
+let myColor=null;           // WHITE | BLACK
+let onlineConnected=false;
+let onlineTab='host';
+
+// ==================== BOARD ====================
+function initBoard() {
+  board = Array(8).fill(null).map(()=>Array(8).fill(EMPTY));
+  for(let r=0;r<3;r++) for(let c=0;c<8;c++) if((r+c)%2===1) board[r][c]=BLACK;
+  for(let r=5;r<8;r++) for(let c=0;c<8;c++) if((r+c)%2===1) board[r][c]=WHITE;
+}
+
+function newGame() {
+  initBoard();
+  currentTurn=WHITE; selectedCell=null; validMoves=[]; multiCapture=null;
+  history=[]; moveLog=[]; capturedByWhite=0; capturedByBlack=0;
+  gameOver=false; aiThinking=false;
+  document.getElementById('overlay').classList.add('hidden');
+  if(gameMode==='online' && onlineRole==='host' && onlineConnected) sendOnline({type:'newgame'});
+  renderAll();
+  if(gameMode==='ai' && currentTurn===BLACK) setTimeout(aiMove,2500);
+}
+
+// ==================== MODES ====================
+function setMode(m) {
+  if(gameMode==='online' && m!=='online') destroyPeer();
+  gameMode=m;
+  document.getElementById('btn-ai').className='mode-btn'+(m==='ai'?' active':'');
+  document.getElementById('btn-2p').className='mode-btn'+(m==='2p'?' active':'');
+  document.getElementById('btn-online').className='mode-btn'+(m==='online'?' active-online':'');
+  document.getElementById('difficulty-bar').classList.toggle('hidden-bar', m!=='ai');
+  document.getElementById('online-panel').classList.toggle('visible', m==='online');
+  document.getElementById('undo-btn').style.display = m==='online'?'none':'';
+  if(m==='online') {
+    initBoard(); renderAll();
+    // Wait for PeerJS to finish loading, then init
+    initOnlineAsHost();
+    return;
+  }
+  updatePlayerNames(); newGame();
+}
+
+function setDifficulty(d) {
+  difficulty=d;
+  ['easy','medium','hard'].forEach(x=>{
+    document.getElementById('diff-'+x).className='diff-btn'+(x===d?' active-'+x:'');
+  });
+  newGame();
+}
+
+function getDiffSettings() {
+  if(difficulty==='easy')   return {depth:1,randomness:0.7};
+  if(difficulty==='medium') return {depth:3,randomness:0.15};
+  return                           {depth:5,randomness:0};
+}
+
+function renderDiffBadge() {
+  const el=document.getElementById('diff-badge-display');
+  if(!el) return;
+  if(gameMode!=='ai'){el.innerHTML='';return;}
+  const labels={easy:'Лёгкий',medium:'Средний',hard:'Сложный'};
+  el.innerHTML=`<span class="diff-badge ${difficulty}">${labels[difficulty]}</span>`;
+}
+
+// ==================== ONLINE (PeerJS) ====================
+function gen6() { return String(Math.floor(100000+Math.random()*900000)); }
+
+function switchOnlineTab(tab) {
+  onlineTab=tab;
+  document.getElementById('otab-host').classList.toggle('active',tab==='host');
+  document.getElementById('otab-join').classList.toggle('active',tab==='join');
+  document.getElementById('osec-host').classList.toggle('visible',tab==='host');
+  document.getElementById('osec-join').classList.toggle('visible',tab==='join');
+  if(tab==='host') {
+    initOnlineAsHost();
+  }
+}
+
+// ==================== ONLINE — Cloudflare Worker relay ====================
+// Two separate URLs for handshake (persistent state) and moves (queue).
+// Handshake uses ?action=set / ?action=get — value persists until overwritten.
+// Moves use ?action=push / ?action=pop — queue, consumed on read.
+const WORKER = 'https://chashki.walerikus.workers.dev';
+
+let hostCode='', pollTimer=null, mySeq=0, lastSeq=0;
+let peer=null, conn=null, rtcPc=null, rtcDc=null, gistId='';
+let _allTimers = [];
+
+function _tick(fn, ms) {
+  const id = setInterval(fn, ms);
+  _allTimers.push(id);
+  return id;
+}
+
+function destroyPeer() {
+  onlineConnected=false; conn=null; peer=null;
+  _allTimers.forEach(id=>clearInterval(id));
+  _allTimers=[];
+  pollTimer=null;
+  if(typeof ackTimer!=='undefined' && ackTimer){clearInterval(ackTimer);ackTimer=null;}
+  hostCode=''; mySeq=0; lastSeq=0;
+  if(typeof inboxSeq!=='undefined') inboxSeq=0;
+  if(typeof outbox!=='undefined') outbox={};
+}
+
+// POST a message to a named queue (consumed on read)
+async function wPush(queue, data) {
+  try {
+    await fetch(`${WORKER}?r=${hostCode}&role=${queue}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(data)
+    });
+  } catch(e){ console.warn('wPush',e); }
+}
+
+// GET and clear a named queue
+async function wPop(queue) {
+  try {
+    const r = await fetch(`${WORKER}?r=${hostCode}&role=${queue}`);
+    if(!r.ok) return [];
+    const d = await r.json();
+    return Array.isArray(d) ? d : [];
+  } catch(e){ return []; }
+}
+
+// ── HOST flow ──────────────────────────────────────────────────
+// Protocol:
+//   1. Host repeatedly pushes {type:'host_ready'} to 'h2g' queue (host→guest)
+//   2. Guest reads 'h2g', finds host_ready, pushes {type:'guest_ready'} to 'g2h'
+//   3. Host reads 'g2h', finds guest_ready → sends newgame via 'h2g'
+//   4. Both switch to move polling
+
+function initOnlineAsHost() {
+  destroyPeer();
+  onlineRole='host'; myColor=WHITE; onlineConnected=false;
+  hostCode=gen6();
+  document.getElementById('host-code').textContent=hostCode;
+  setOStat('host','waiting','Ожидание игрока… Поделитесь кодом!');
+  updatePlayerNames();
+
+  // Announce presence every 1s so guest always finds a message
+  _tick(()=> wPush('h2g', {type:'host_ready', t:Date.now()}), 1000);
+
+  // Poll for guest response
+  _tick(async()=>{
+    const msgs = await wPop('g2h');
+    const rdy = msgs.find(m=>m.type==='guest_ready');
+    if(!rdy || onlineConnected) return;
+    onlineConnected=true;
+    _allTimers.forEach(id=>clearInterval(id));
+    _allTimers=[];
+    setOStat('host','connected','Игрок подключился! Начинаем…');
+    updatePlayerNames();
+    setTimeout(()=>newGame(), 300);
+    startMovePoll();
+  }, 1000);
+}
+
+// ── GUEST flow ─────────────────────────────────────────────────
+function joinGame() {
+  const code=document.getElementById('join-input').value.trim();
+  if(!/^\d{6}$/.test(code)){setOStat('join','error','Нужно ровно 6 цифр');return;}
+  destroyPeer();
+  hostCode=code;
+  onlineRole='guest'; myColor=BLACK; onlineConnected=false;
+  document.getElementById('join-btn').disabled=true;
+  setOStat('join','waiting','Ищем хоста…');
+  updatePlayerNames();
+
+  let attempts=0;
+  _tick(async()=>{
+    attempts++;
+    setOStat('join','waiting',`Ищем хоста… (${attempts}/60)`);
+
+    // Look for host announcement in h2g queue
+    const msgs = await wPop('h2g');
+    const rdy = msgs.find(m=>m.type==='host_ready');
+    if(!rdy) {
+      if(attempts>=60){
+        destroyPeer();
+        setOStat('join','error','Хост не найден — проверьте код');
+        document.getElementById('join-btn').disabled=false;
+      }
+      return;
+    }
+
+    // Found host — signal back repeatedly until newgame arrives
+    onlineConnected=true;
+    _allTimers.forEach(id=>clearInterval(id));
+    _allTimers=[];
+    setOStat('join','connected','Подключено! Ожидайте хоста…');
+    document.getElementById('join-btn').disabled=false;
+    updatePlayerNames(); renderAll();
+
+    // Keep sending guest_ready until we receive newgame
+    _tick(()=> wPush('g2h', {type:'guest_ready', t:Date.now()}), 1000);
+
+    // Poll h2g for newgame
+    _tick(async()=>{
+      const ms = await wPop('h2g');
+      const ng = ms.find(m=>m.type==='newgame');
+      if(!ng) return;
+      _allTimers.forEach(id=>clearInterval(id));
+      _allTimers=[];
+      handleOnlineData(ng);
+      startMovePoll();
+    }, 1000);
+
+  }, 1000);
+}
+
+// ── Move polling ───────────────────────────────────────────────
+// host sends moves via 'h2g', guest sends via 'g2h'
+// Each side keeps a set of processed seq numbers to avoid duplicates
+// Sender retransmits every 2s until ACK received
+
+let outbox = {};
+let inboxSeq = 0;
+let ackTimer = null;
+
+function startMovePoll() {
+  outbox = {}; inboxSeq = 0;
+  const recvQueue = onlineRole==='host' ? 'g2h' : 'h2g';
+  const sendQueue = onlineRole==='host' ? 'h2g' : 'g2h';
+
+  // Receive loop
+  _tick(async()=>{
+    const msgs = await wPop(recvQueue);
+    for(const m of msgs) {
+      if(m.type==='ack') {
+        for(const k of Object.keys(outbox))
+          if(Number(k) <= m.ack) delete outbox[k];
+        continue;
+      }
+      if(m.seq !== undefined && m.seq <= inboxSeq) {
+        wPush(sendQueue, {type:'ack', ack:inboxSeq});
+        continue;
+      }
+      if(m.seq !== undefined) inboxSeq = m.seq;
+      wPush(sendQueue, {type:'ack', ack:inboxSeq});
+      handleOnlineData(m);
+    }
+  }, 1200);
+
+  // Retransmit unACKed outbox every 2s
+  _tick(()=>{
+    for(const msg of Object.values(outbox)) wPush(sendQueue, msg);
+  }, 2000);
+}
+
+function sendOnline(data) {
+  if(!onlineConnected) return;
+  data.seq = ++mySeq;
+  outbox[mySeq] = data;
+  const sendQueue = onlineRole==='host' ? 'h2g' : 'g2h';
+  wPush(sendQueue, data);
+}
+
+// ── Game data handler ──────────────────────────────────────────
+function handleOnlineData(data) {
+  if(data.type==='newgame') {
+    initBoard(); currentTurn=WHITE;
+    selectedCell=null; validMoves=[]; multiCapture=null;
+    history=[]; moveLog=[]; capturedByWhite=0; capturedByBlack=0;
+    gameOver=false; aiThinking=false;
+    document.getElementById('overlay').classList.add('hidden');
+    renderAll();
+  } else if(data.type==='move') {
+    executeMove(data.fr, data.fc, data.tr, data.tc, data.capCell||null, false);
+  }
+}
+
+function setOStat(side, state, msg) {
+  const dot=document.getElementById(side==='host'?'host-dot':'join-dot');
+  const txt=document.getElementById(side==='host'?'host-status-text':'join-status-text');
+  if(dot) dot.className='osdot '+state;
+  if(txt) txt.textContent=msg;
+}
+
+function copyCode() {
+  const code=document.getElementById('host-code').textContent;
+  if(!/^\d{6}$/.test(code)){return;}
+  navigator.clipboard.writeText(code).then(()=>{
+    const btn=document.getElementById('copy-btn');
+    btn.textContent='✓ Скопировано';
+    setTimeout(()=>btn.textContent='📋 Копировать',1800);
+  }).catch(()=>{
+    // fallback for http
+    const ta=document.createElement('textarea');
+    ta.value=code; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    const btn=document.getElementById('copy-btn');
+    btn.textContent='✓ Скопировано';
+    setTimeout(()=>btn.textContent='📋 Копировать',1800);
+  });
+}
+
+function updatePlayerNames() {
+  const bw=document.getElementById('online-badge-white');
+  const bb=document.getElementById('online-badge-black');
+  if(!bw||!bb) return;
+  const badgeHtml='<span class="you-badge">Вы</span>';
+  if(gameMode!=='online'){
+    bw.style.display='none'; bw.innerHTML='';
+    bb.style.display='none'; bb.innerHTML='';
+    return;
+  }
+  if(myColor===WHITE){
+    bw.style.display=''; bw.innerHTML=badgeHtml;
+    bb.style.display='none'; bb.innerHTML='';
+  } else {
+    bw.style.display='none'; bw.innerHTML='';
+    bb.style.display=''; bb.innerHTML=badgeHtml;
+  }
+}
+
+// ==================== MOVE LOGIC ====================
+function isKing(v){return v===WHITE_K||v===BLACK_K;}
+function colorOf(v){if(v===WHITE||v===WHITE_K)return WHITE;if(v===BLACK||v===BLACK_K)return BLACK;return 0;}
+function opponent(c){return c===WHITE?BLACK:WHITE;}
+
+function getCaptures(r,c,brd) {
+  const v=brd[r][c],col=colorOf(v),opp=opponent(col);
+  const dirs=isKing(v)?[[-1,-1],[-1,1],[1,-1],[1,1]]:col===WHITE?[[-1,-1],[-1,1]]:[[1,-1],[1,1]];
+  const res=[];
+  for(const[dr,dc]of dirs){const mr=r+dr,mc=c+dc,lr=r+2*dr,lc=c+2*dc;if(lr<0||lr>7||lc<0||lc>7)continue;if(colorOf(brd[mr][mc])===opp&&brd[lr][lc]===EMPTY)res.push({to:[lr,lc],cap:[mr,mc]});}
+  return res;
+}
+
+function getMoves(r,c,brd) {
+  const v=brd[r][c],col=colorOf(v);
+  const dirs=isKing(v)?[[-1,-1],[-1,1],[1,-1],[1,1]]:col===WHITE?[[-1,-1],[-1,1]]:[[1,-1],[1,1]];
+  const res=[];
+  for(const[dr,dc]of dirs){const nr=r+dr,nc=c+dc;if(nr<0||nr>7||nc<0||nc>7)continue;if(brd[nr][nc]===EMPTY)res.push({to:[nr,nc],cap:null});}
+  return res;
+}
+
+function allCaptures(col,brd) {
+  const res=[];
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(colorOf(brd[r][c])===col){const caps=getCaptures(r,c,brd);if(caps.length)res.push({from:[r,c],moves:caps});}
+  return res;
+}
+
+function allMoves(col,brd) {
+  const caps=allCaptures(col,brd);if(caps.length)return caps;
+  const res=[];
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(colorOf(brd[r][c])===col){const mvs=getMoves(r,c,brd);if(mvs.length)res.push({from:[r,c],moves:mvs});}
+  return res;
+}
+
+function applyMove(r,c,nr,nc,capCell,brd) {
+  const nb=brd.map(row=>[...row]);
+  nb[nr][nc]=nb[r][c];nb[r][c]=EMPTY;
+  let captured=false;
+  if(capCell){nb[capCell[0]][capCell[1]]=EMPTY;captured=true;}
+  if(nb[nr][nc]===WHITE&&nr===0)nb[nr][nc]=WHITE_K;
+  if(nb[nr][nc]===BLACK&&nr===7)nb[nr][nc]=BLACK_K;
+  return{nb,captured};
+}
+
+function countPieces(col,brd){let n=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(colorOf(brd[r][c])===col)n++;return n;}
+
+// ==================== INPUT ====================
+function isMyTurn(){return gameMode!=='online'||currentTurn===myColor;}
+
+function onCellClick(r,c) {
+  if(gameOver||aiThinking||!isMyTurn()) return;
+  if(gameMode==='ai'&&currentTurn===BLACK) return;
+  const v=board[r][c];
+
+  if(multiCapture) {
+    const[sr,sc]=multiCapture;
+    const move=validMoves.find(m=>m.to[0]===r&&m.to[1]===c);
+    if(move){executeMove(sr,sc,r,c,move.cap,true);}
+    return;
+  }
+
+  if(colorOf(v)===currentTurn) {
+    selectedCell=[r,c];
+    const hasCap=allCaptures(currentTurn,board).length>0;
+    validMoves=hasCap?getCaptures(r,c,board):getMoves(r,c,board);
+    renderBoard(); return;
+  }
+
+  if(selectedCell) {
+    const[sr,sc]=selectedCell;
+    const move=validMoves.find(m=>m.to[0]===r&&m.to[1]===c);
+    if(move){executeMove(sr,sc,r,c,move.cap,true);return;}
+  }
+  selectedCell=null;validMoves=[];renderBoard();
+}
+
+// local=true: this device made the move; sends to peer and triggers AI
+function executeMove(fr,fc,tr,tc,capCell,local) {
+  history.push({board:board.map(r=>[...r]),turn:currentTurn,captured:[capturedByWhite,capturedByBlack]});
+  const{nb,captured}=applyMove(fr,fc,tr,tc,capCell,board);
+  board=nb;
+  const ms=`${String.fromCharCode(97+fc)}${8-fr}→${String.fromCharCode(97+tc)}${8-tr}${captured?'×':''}`;
+  moveLog.push({col:currentTurn,text:ms});
+
+  if(captured) {
+    if(currentTurn===WHITE)capturedByWhite++;else capturedByBlack++;
+    const wasReg=currentTurn===WHITE?board[tr][tc]===WHITE:board[tr][tc]===BLACK;
+    const more=wasReg?getCaptures(tr,tc,board):[];
+    if(more.length) {
+      multiCapture=[tr,tc];selectedCell=[tr,tc];validMoves=more;
+      if(local&&gameMode==='online')sendOnline({type:'move',fr,fc,tr,tc,capCell});
+      renderAll();return;
+    }
+  }
+
+  multiCapture=null;selectedCell=null;validMoves=[];
+  if(local&&gameMode==='online')sendOnline({type:'move',fr,fc,tr,tc,capCell});
+  currentTurn=opponent(currentTurn);
+  checkWin();renderAll();
+
+  if(!gameOver&&gameMode==='ai'&&currentTurn===BLACK) {
+    aiThinking=true;renderStatus();
+    const delay=2500;
+    setTimeout(aiMove,delay);
+  }
+}
+
+function undoMove() {
+  if(!history.length||gameOver||gameMode==='online')return;
+  const p=history.pop();
+  board=p.board.map(r=>[...r]);currentTurn=p.turn;
+  [capturedByWhite,capturedByBlack]=p.captured;
+  moveLog.pop();selectedCell=null;validMoves=[];multiCapture=null;
+  aiThinking=false;gameOver=false;renderAll();
+}
+
+// ==================== AI ====================
+function evaluate(brd) {
+  let s=0;
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){const v=brd[r][c];if(!v)continue;const w=isKing(v)?3:1;const pos=colorOf(v)===WHITE?(7-r)*0.05:r*0.05;s+=colorOf(v)===WHITE?-(w+pos):(w+pos);}
+  return s;
+}
+
+function minimax(brd,depth,alpha,beta,maximizing) {
+  const col=maximizing?BLACK:WHITE,moves=allMoves(col,brd);
+  if(!moves.length||depth===0)return evaluate(brd);
+  if(maximizing){
+    let best=-Infinity;
+    for(const{from,moves:ms}of moves){for(const mv of ms){const{nb}=applyMove(from[0],from[1],mv.to[0],mv.to[1],mv.cap,brd);best=Math.max(best,minimax(nb,depth-1,alpha,beta,false));alpha=Math.max(alpha,best);if(beta<=alpha)break;}if(beta<=alpha)break;}
+    return best;
+  }else{
+    let best=Infinity;
+    for(const{from,moves:ms}of moves){for(const mv of ms){const{nb}=applyMove(from[0],from[1],mv.to[0],mv.to[1],mv.cap,brd);best=Math.min(best,minimax(nb,depth-1,alpha,beta,true));beta=Math.min(beta,best);if(beta<=alpha)break;}if(beta<=alpha)break;}
+    return best;
+  }
+}
+
+function buildCaptureChain(r,c,brd,chain) {
+  const caps=getCaptures(r,c,brd);if(!caps.length)return[chain];
+  let seqs=[];
+  for(const mv of caps){const{nb}=applyMove(r,c,mv.to[0],mv.to[1],mv.cap,brd);const promoted=brd[r][c]===BLACK&&mv.to[0]===7;if(promoted)seqs.push([...chain,mv]);else seqs=seqs.concat(buildCaptureChain(mv.to[0],mv.to[1],nb,[...chain,mv]));}
+  return seqs;
+}
+
+function aiMove() {
+  if(gameOver)return;
+  const moves=allMoves(BLACK,board);
+  if(!moves.length){checkWin();aiThinking=false;renderAll();return;}
+  const{depth,randomness}=getDiffSettings();
+  let allSeqs=[];
+  for(const{from,moves:ms}of moves){
+    for(const mv of ms){
+      if(mv.cap){const{nb}=applyMove(from[0],from[1],mv.to[0],mv.to[1],mv.cap,board);const promoted=board[from[0]][from[1]]===BLACK&&mv.to[0]===7;if(promoted)allSeqs.push({from,chain:[mv]});else{const chains=buildCaptureChain(mv.to[0],mv.to[1],nb,[mv]);for(const c of chains)allSeqs.push({from,chain:c});}}
+      else allSeqs.push({from,chain:[mv]});
+    }
+  }
+  let scored=allSeqs.map(seq=>{
+    let brd=board;let[cr,cc]=seq.from;
+    for(const mv of seq.chain){const r=applyMove(cr,cc,mv.to[0],mv.to[1],mv.cap,brd);brd=r.nb;[cr,cc]=mv.to;}
+    const noise=randomness>0?(Math.random()*2-1)*randomness*3:0;
+    return{seq,score:minimax(brd,depth,-Infinity,Infinity,false)+noise};
+  });
+  let bestSeq;
+  if(difficulty==='easy'&&Math.random()<0.4)bestSeq=allSeqs[Math.floor(Math.random()*allSeqs.length)];
+  else{scored.sort((a,b)=>b.score-a.score);bestSeq=scored[0].seq;}
+  aiThinking=false;
+  if(bestSeq)aiExecuteChain(bestSeq.from,bestSeq.chain,0);
+}
+
+function aiExecuteChain(from,chain,idx) {
+  if(gameOver||idx>=chain.length)return;
+  const mv=chain[idx];const[fr,fc]=from;const[tr,tc]=mv.to;
+  history.push({board:board.map(r=>[...r]),turn:currentTurn,captured:[capturedByWhite,capturedByBlack]});
+  const{nb,captured}=applyMove(fr,fc,tr,tc,mv.cap,board);board=nb;
+  const ms=`${String.fromCharCode(97+fc)}${8-fr}→${String.fromCharCode(97+tc)}${8-tr}${captured?'×':''}`;
+  moveLog.push({col:currentTurn,text:ms});
+  if(captured)capturedByBlack++;
+  renderAll();
+  if(idx===chain.length-1){multiCapture=null;selectedCell=null;validMoves=[];currentTurn=opponent(currentTurn);checkWin();renderAll();}
+  else setTimeout(()=>aiExecuteChain(mv.to,chain,idx+1),350);
+}
+
+// ==================== WIN ====================
+function checkWin() {
+  if(!countPieces(WHITE,board)||!allMoves(WHITE,board).length){showWin(BLACK);return;}
+  if(!countPieces(BLACK,board)||!allMoves(BLACK,board).length){showWin(WHITE);return;}
+}
+
+function showWin(col) {
+  gameOver=true;
+  const isW=col===WHITE;
+  let emoji,title,sub;
+  if(gameMode==='online'){
+    const iWon=(isW&&myColor===WHITE)||(!isW&&myColor===BLACK);
+    emoji=iWon?'🏆':'😔';title=iWon?'Вы победили!':'Соперник победил';sub=iWon?'Отличная партия!':'Попробуйте ещё раз!';
+  }else if(gameMode==='ai'){
+    emoji=isW?'🏆':'🤖';title=isW?'Вы победили!':'Компьютер победил';sub=isW?'Отличная игра!':'Попробуйте ещё раз!';
+  }else{
+    emoji='🎮';title=isW?'Белые победили!':'Чёрные победили!';sub='Хорошая партия!';
+  }
+  document.getElementById('overlay-emoji').textContent=emoji;
+  document.getElementById('overlay-title').textContent=title;
+  document.getElementById('overlay-sub').textContent=sub;
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+// ==================== RENDER ====================
+function renderCoords() {
+  const flipped = gameMode==='online' && myColor===BLACK;
+  const letters = ['a','b','c','d','e','f','g','h'];
+  const cols = flipped ? [...letters].reverse() : letters;
+  const rows = flipped ? [1,2,3,4,5,6,7,8] : [8,7,6,5,4,3,2,1];
+
+  // Top letters (hidden, just spacing)
+  const topEl = document.getElementById('coord-col-top');
+  if (topEl) {
+    topEl.innerHTML = '';
+    cols.forEach(l => {
+      const s = document.createElement('span');
+      s.className = 'coord-label'; s.textContent = l;
+      topEl.appendChild(s);
+    });
+  }
+  // Bottom letters
+  const botEl = document.getElementById('coord-col-bot');
+  if (botEl) {
+    botEl.innerHTML = '';
+    cols.forEach(l => {
+      const s = document.createElement('span');
+      s.className = 'coord-label'; s.textContent = l;
+      botEl.appendChild(s);
+    });
+  }
+  // Left row numbers
+  const rowEl = document.getElementById('coord-row');
+  if (rowEl) {
+    rowEl.innerHTML = '';
+    rows.forEach(n => {
+      const s = document.createElement('span');
+      s.className = 'coord-label'; s.textContent = n;
+      rowEl.appendChild(s);
+    });
+  }
+}
+
+function renderBoard() {
+  const el=document.getElementById('board');
+  const flipped=gameMode==='online'&&myColor===BLACK;
+  el.className='board'+(flipped?' flipped':'');
+  el.innerHTML='';
+  renderCoords();
+  for(let r=0;r<8;r++){
+    for(let c=0;c<8;c++){
+      const cell=document.createElement('div');
+      const isDark=(r+c)%2===1;
+      cell.className=`cell ${isDark?'dark':'light'}`;
+      const isSel=selectedCell&&selectedCell[0]===r&&selectedCell[1]===c;
+      const isVal=validMoves.some(m=>m.to[0]===r&&m.to[1]===c);
+      const isCap=isVal&&validMoves.find(m=>m.to[0]===r&&m.to[1]===c)?.cap;
+      if(isSel)cell.classList.add('selected');
+      else if(isCap)cell.classList.add('capture-move');
+      else if(isVal)cell.classList.add('valid-move');
+      const v=board[r][c];
+      if(v){
+        const p=document.createElement('div');
+        const isW=colorOf(v)===WHITE;
+        p.className=`piece ${isW?'white-p':'black-p'}${isKing(v)?' king':''}${isSel?' selected-piece':''}`;
+        const canI=isDark&&colorOf(v)===currentTurn&&!gameOver&&isMyTurn()&&!(gameMode==='ai'&&currentTurn===BLACK);
+        if(canI)p.style.cursor='pointer';
+        cell.appendChild(p);
+      }
+      if(isDark){
+        const canSel=v&&colorOf(v)===currentTurn&&!gameOver&&isMyTurn()&&!(gameMode==='ai'&&currentTurn===BLACK)&&!multiCapture;
+        const canMov=isVal&&!gameOver&&isMyTurn()&&!(gameMode==='ai'&&currentTurn===BLACK);
+        if(canSel||canMov)cell.classList.add('selectable');
+        cell.addEventListener('click',()=>onCellClick(r,c));
+      }
+      el.appendChild(cell);
+    }
+  }
+}
+
+function renderStatus() {
+  const txt=document.getElementById('status-text');
+  const dot=document.getElementById('status-dot');
+  if(gameMode==='online'&&!onlineConnected){
+    txt.textContent='Ожидание соединения…';
+    dot.style.cssText='background:var(--gold);box-shadow:0 0 8px var(--gold)';return;
+  }
+  dot.style.cssText='';
+  if(gameOver){txt.textContent='Игра завершена';return;}
+  if(aiThinking){const m={easy:'Компьютер ходит…',medium:'Компьютер думает…',hard:'Компьютер анализирует…'};txt.textContent=m[difficulty];return;}
+  if(gameMode==='online'){txt.textContent=currentTurn===myColor?'Ваш ход':'Ход соперника';return;}
+  const who=currentTurn===WHITE?'белых':'чёрных';
+  const caps=allCaptures(currentTurn,board).length;
+  txt.textContent=caps?`Ход ${who} — обязателен захват!`:`Ход ${who}`;
+}
+
+function renderScores() {
+  document.getElementById('score-white').textContent=countPieces(WHITE,board);
+  document.getElementById('score-black').textContent=countPieces(BLACK,board);
+  document.getElementById('info-white').className='player-info'+(currentTurn===WHITE&&!gameOver?' active-player':'');
+  document.getElementById('info-black').className='player-info'+(currentTurn===BLACK&&!gameOver?' active-player':'');
+  const cb=document.getElementById('captured-black');cb.innerHTML='';
+  for(let i=0;i<capturedByWhite;i++){const d=document.createElement('div');d.className='cap-piece black';cb.appendChild(d);}
+  const cw=document.getElementById('captured-white');cw.innerHTML='';
+  for(let i=0;i<capturedByBlack;i++){const d=document.createElement('div');d.className='cap-piece white';cw.appendChild(d);}
+}
+
+function renderHistory() {
+  const list=document.getElementById('history-list');list.innerHTML='';
+  for(const m of moveLog.slice(-20)){const item=document.createElement('div');item.className='history-item '+(m.col===WHITE?'white-move':'black-move');item.textContent=m.text;list.appendChild(item);}
+  list.scrollTop=list.scrollHeight;
+}
+
+function renderAll(){renderBoard();renderStatus();renderScores();renderHistory();renderDiffBadge();}
+
+// ==================== START ====================
+newGame();
+</script>
+</body>
+</html>

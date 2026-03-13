@@ -628,24 +628,35 @@ function destroyPeer() {
 }
 
 // POST a message to a named queue (consumed on read)
+function dbg(msg) {
+  const el = document.getElementById('debug-log');
+  if(!el) return;
+  const t = new Date().toLocaleTimeString();
+  el.textContent = t + ' ' + msg;
+}
+
 async function wPush(queue, data) {
   try {
-    await fetch(`${WORKER}?r=${hostCode}&role=${queue}`, {
+    const url = `${WORKER}?r=${hostCode}&role=${queue}`;
+    const r = await fetch(url, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(data)
     });
-  } catch(e){ console.warn('wPush',e); }
+    if(!r.ok) dbg('POST '+queue+' HTTP '+r.status);
+  } catch(e){ dbg('POST ERR '+queue+': '+e.message); }
 }
 
-// GET and clear a named queue
 async function wPop(queue) {
   try {
-    const r = await fetch(`${WORKER}?r=${hostCode}&role=${queue}`);
-    if(!r.ok) return [];
+    const url = `${WORKER}?r=${hostCode}&role=${queue}`;
+    const r = await fetch(url);
+    if(!r.ok){ dbg('GET '+queue+' HTTP '+r.status); return []; }
     const d = await r.json();
-    return Array.isArray(d) ? d : [];
-  } catch(e){ return []; }
+    const arr = Array.isArray(d) ? d : [];
+    if(arr.length) dbg('GOT '+queue+': '+arr.map(m=>m.type).join(','));
+    return arr;
+  } catch(e){ dbg('GET ERR '+queue+': '+e.message); return []; }
 }
 
 // ── HOST flow ──────────────────────────────────────────────────

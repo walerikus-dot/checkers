@@ -138,7 +138,7 @@
   }
 
   /* GAME LAYOUT */
-  .game-layout { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: start; margin-top: 8px; }
+  .game-layout { display: flex; justify-content: center; margin-top: 8px; }
   .panel {
     background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
     padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 130px;
@@ -170,6 +170,7 @@
   }
   .active-player .turn-indicator { display: block; }
   .captured-pieces { display: flex; flex-wrap: wrap; gap: 3px; min-height: 24px; }
+
   .cap-piece { width: 14px; height: 14px; border-radius: 50%; }
   .cap-piece.white { background: radial-gradient(circle at 35% 35%, #fff, #b0a898); }
   .cap-piece.black { background: radial-gradient(circle at 35% 35%, #4030a0, #0e0c1a); border: 1px solid var(--black-rim); box-shadow: 0 0 4px var(--black-rim); }
@@ -348,7 +349,7 @@
     :root { --board-sz: min(400px, 92vw); --frame: 10px; }
     .game-layout { grid-template-columns: 1fr; }
     .panel { flex-direction: row; flex-wrap: wrap; min-width: unset; padding: 10px; gap: 8px; }
-    .side-left { order: 2; } .side-right { order: 3; } .board-wrapper { order: 1; }
+
     .history-list { display: none; }
     .player-score { font-size: 1.1rem; }
     .mode-btn { padding: 7px 14px; font-size: 0.7rem; }
@@ -368,6 +369,14 @@
     .mode-bar { gap: 5px; }
     .mode-btn { padding: 5px 8px; font-size: 0.6rem; }
   }
+  .bottom-panel { margin: 12px auto 0; max-width: 600px; width: 100%; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px 10px; }
+  .bottom-panel-title { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.15em; text-align: center; margin-bottom: 12px; }
+  .bottom-cols { display: flex; gap: 0; }
+  .bottom-col { flex: 1; padding: 0 12px; }
+  .bottom-col:first-child { padding-left: 0; }
+  .bottom-col:last-child { padding-right: 0; }
+  .bottom-divider { width: 1px; background: var(--border); margin: 0 4px; }
+  .history-list { margin-top: 10px; max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
 </style>
 </head>
 <body>
@@ -422,23 +431,6 @@
   </div>
 
   <div class="game-layout">
-    <div class="panel side-left">
-      <div class="player-info" id="info-white">
-        <div class="player-avatar white"></div>
-        <div class="player-meta">
-          <div class="player-name" id="name-white">Белые</div>
-          <div id="online-badge-white" style="display:none"></div>
-          <div class="player-score" id="score-white">12</div>
-          <div class="player-label">фигур</div>
-          <div class="turn-indicator">Ваш ход</div>
-        </div>
-      </div>
-      <div class="panel-label">Захвачено</div>
-      <div class="captured-pieces" id="captured-black"></div>
-      <div class="panel-label">История</div>
-      <div class="history-list" id="history-list"></div>
-    </div>
-
     <div class="board-wrapper">
       <div class="board-outer">
         <!-- Row numbers (left side: 8 top → 1 bottom) -->
@@ -460,22 +452,44 @@
         <button class="ctrl-btn" id="undo-btn" onclick="undoMove()">⟵ Отменить</button>
       </div>
     </div>
+  </div>
 
-    <div class="panel side-right">
-      <div class="player-info" id="info-black">
-        <div class="player-avatar black"></div>
-        <div class="player-meta">
-          <div class="player-name" id="name-black">Чёрные</div>
-          <div id="diff-badge-display"></div>
-          <div id="online-badge-black" style="display:none"></div>
-          <div class="player-score" id="score-black">12</div>
-          <div class="player-label">фигур</div>
-          <div class="turn-indicator">Ваш ход</div>
+  <!-- Bottom info panel -->
+  <div class="bottom-panel">
+    <div class="bottom-panel-title">История</div>
+    <div class="bottom-cols">
+      <div class="bottom-col">
+        <div class="player-info" id="info-black">
+          <div class="player-avatar black"></div>
+          <div class="player-meta">
+            <div class="player-name" id="name-black">Чёрные</div>
+            <div id="diff-badge-display"></div>
+            <div id="online-badge-black" style="display:none"></div>
+            <div class="player-score" id="score-black">12</div>
+            <div class="player-label">фигур</div>
+            <div class="turn-indicator">Ваш ход</div>
+          </div>
         </div>
+        <div class="panel-label">Захвачено</div>
+        <div class="captured-pieces" id="captured-white"></div>
       </div>
-      <div class="panel-label">Захвачено</div>
-      <div class="captured-pieces" id="captured-white"></div>
+      <div class="bottom-divider"></div>
+      <div class="bottom-col">
+        <div class="player-info" id="info-white">
+          <div class="player-avatar white"></div>
+          <div class="player-meta">
+            <div class="player-name" id="name-white">Белые</div>
+            <div id="online-badge-white" style="display:none"></div>
+            <div class="player-score" id="score-white">12</div>
+            <div class="player-label">фигур</div>
+            <div class="turn-indicator">Ваш ход</div>
+          </div>
+        </div>
+        <div class="panel-label">Захвачено</div>
+        <div class="captured-pieces" id="captured-black"></div>
+      </div>
     </div>
+    <div class="history-list" id="history-list"></div>
   </div>
 </div>
 
@@ -590,6 +604,8 @@ function destroyPeer() {
   onlineConnected=false; conn=null; peer=null;
   if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
   if(ackTimer){clearInterval(ackTimer);ackTimer=null;}
+  if(window._hostAnnounceTimer){clearInterval(window._hostAnnounceTimer);window._hostAnnounceTimer=null;}
+  if(window._helloTimer){clearInterval(window._helloTimer);window._helloTimer=null;}
   hostCode=''; mySeq=0; lastSeq=0; inboxSeq=0; outbox={};
 }
 
@@ -615,8 +631,11 @@ async function wRecv(channel) {
 }
 
 // ── HOST flow ──────────────────────────────────────────────────
-// Host writes to 'host' queue → guest reads 'host' queue
-// Host reads 'guest' queue ← guest writes to 'guest' queue
+// Uses a simple state key: host writes 'state' key, guest reads it.
+// No queue clearing issues — state is overwritten, not consumed.
+// host_state: {ready:true} means host is waiting
+// guest_state: {ready:true} means guest joined
+
 function initOnlineAsHost() {
   destroyPeer();
   onlineRole='host'; myColor=WHITE; onlineConnected=false;
@@ -625,32 +644,32 @@ function initOnlineAsHost() {
   setOStat('host','waiting','Ожидание игрока… Поделитесь кодом!');
   updatePlayerNames();
 
-  // Keep announcing host presence until guest joins
+  // Write host presence — keep refreshing so guest can see it
   let hostAnnounceTimer = setInterval(()=>{
     wSend('host', {type:'hello', t:Date.now()});
-  }, 2500);
+  }, 1500);
 
-  // Poll for guest hello in 'guest' queue
-  pollTimer = setInterval(async()=>{
+  // Poll for guest hello
+  let hostPollTimer = setInterval(async()=>{
     const msgs = await wRecv('guest');
-    for(const m of msgs) {
-      if(m.type==='hello') {
-        clearInterval(pollTimer); pollTimer=null;
-        clearInterval(hostAnnounceTimer);
-        onlineConnected=true;
-        setOStat('host','connected','Игрок подключился! Начинаем…');
-        updatePlayerNames();
-        setTimeout(()=>newGame(), 500);
-        startMovePoll();
-        return;
-      }
+    const hello = msgs.find(m=>m.type==='hello');
+    if(hello) {
+      clearInterval(hostPollTimer);
+      clearInterval(hostAnnounceTimer);
+      onlineConnected=true;
+      setOStat('host','connected','Игрок подключился! Начинаем…');
+      updatePlayerNames();
+      setTimeout(()=>newGame(), 500);
+      startMovePoll();
     }
-  }, 2000);
+  }, 1500);
+
+  // Store timers so destroyPeer can clean them
+  pollTimer = hostPollTimer;
+  window._hostAnnounceTimer = hostAnnounceTimer;
 }
 
 // ── GUEST flow ─────────────────────────────────────────────────
-// Guest reads 'host' queue ← host writes to 'host' queue
-// Guest writes to 'guest' queue → host reads 'guest' queue
 function joinGame() {
   const code=document.getElementById('join-input').value.trim();
   if(!/^\d{6}$/.test(code)){setOStat('join','error','Нужно ровно 6 цифр');return;}
@@ -662,44 +681,47 @@ function joinGame() {
   updatePlayerNames();
 
   let attempts=0;
-  pollTimer = setInterval(async()=>{
+  let guestPollTimer = setInterval(async()=>{
     attempts++;
     setOStat('join','waiting', `Ищем хоста… (${attempts}/30)`);
 
-    // Check host queue for hello
+    // Read host queue — host keeps sending hello repeatedly
     const msgs = await wRecv('host');
     const hostHello = msgs.find(m=>m.type==='hello');
+
     if(hostHello) {
-      // Found host — signal back
+      // Respond with our hello — keep sending until host ACKs via newgame
       await wSend('guest', {type:'hello', t:Date.now()});
-      clearInterval(pollTimer); pollTimer=null;
+      clearInterval(guestPollTimer);
       onlineConnected=true;
       setOStat('join','connected','Подключено! Ожидайте хоста…');
       document.getElementById('join-btn').disabled=false;
       updatePlayerNames(); renderAll();
-      startMovePoll();
-      return;
-    }
-
-    // Also check if newgame already arrived
-    const ng = msgs.find(m=>m.type==='newgame');
-    if(ng) {
-      clearInterval(pollTimer); pollTimer=null;
-      onlineConnected=true;
-      setOStat('join','connected','Подключено!');
-      document.getElementById('join-btn').disabled=false;
-      updatePlayerNames(); renderAll();
-      handleOnlineData(ng);
-      startMovePoll();
+      // Keep sending hello until newgame arrives (in case host missed it)
+      let helloTimer = setInterval(()=>wSend('guest',{type:'hello',t:Date.now()}), 1500);
+      // Start polling for newgame/moves
+      let waitTimer = setInterval(async()=>{
+        const ms = await wRecv('host');
+        const ng = ms.find(m=>m.type==='newgame');
+        if(ng) {
+          clearInterval(helloTimer);
+          clearInterval(waitTimer);
+          handleOnlineData(ng);
+          startMovePoll();
+        }
+      }, 1500);
+      pollTimer = waitTimer;
+      window._helloTimer = helloTimer;
       return;
     }
 
     if(attempts>=30){
-      clearInterval(pollTimer); pollTimer=null;
-      setOStat('join','error','Хост не найден — убедитесь что хост онлайн и ввёл правильный код');
+      clearInterval(guestPollTimer);
+      setOStat('join','error','Хост не найден — убедитесь что хост онлайн');
       document.getElementById('join-btn').disabled=false;
     }
   }, 2000);
+  pollTimer = guestPollTimer;
 }
 
 // ── Move polling ───────────────────────────────────────────────

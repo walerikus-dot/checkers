@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Техническое задание — Шашки</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #f5f0e8;
+    --bg2:       #ede8de;
+    --bg3:       #e5dfd3;
+    --surface:   #faf7f2;
+    --border:    #d6cfc3;
+    --border2:   #c8bfb0;
+    --ink:       #2a2520;
+    --ink2:      #4a433b;
+    --ink3:      #7a7168;
+    --ink4:      #a89f93;
+    --accent:    #5a4a3a;
+    --accent2:   #7a6550;
+    --red:       #8b3a2a;
+    --blue:      #2a4a6b;
+    --green:     #2d5a3a;
+    --gold:      #8b6914;
+    --shadow:    rgba(42,37,32,0.08);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  /* ── PAGE LAYOUT ──────────────────────────────────── */
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 64px 48px;
+  }
+
+  @media (max-width: 640px) {
+    .page { padding: 36px 20px; }
+  }
+
+  /* ── COVER ──────────────────────────────────────── */
+  .cover {
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 48px;
+    margin-bottom: 56px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 32px;
+    align-end: end;
+  }
+
+  @media (max-width: 600px) { .cover { grid-template-columns: 1fr; } }
+
+  .cover-left {}
+
+  .doc-label {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink4);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .doc-label::before {
+    content: '';
+    width: 24px;
+    height: 1px;
+    background: var(--border2);
+    display: inline-block;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(36px, 5vw, 58px);
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
+  }
+
+  .cover-desc {
+    font-size: 16px;
+    color: var(--ink3);
+    font-weight: 300;
+    max-width: 520px;
+    line-height: 1.65;
+  }
+
+  .cover-right {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: flex-end;
+  }
+
+  @media (max-width: 600px) { .cover-right { align-items: flex-start; } }
+
+  .meta-block {
+    text-align: right;
+  }
+
+  @media (max-width: 600px) { .meta-block { text-align: left; } }
+
+  .meta-key {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink4);
+    display: block;
+  }
+
+  .meta-val {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink2);
+    display: block;
+  }
+
+  /* ── TOC ──────────────────────────────────────────── */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 28px 32px;
+    margin-bottom: 56px;
+  }
+
+  .toc-title {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink4);
+    margin-bottom: 16px;
+  }
+
+  .toc-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 6px 32px;
+  }
+
+  .toc-list li a {
+    text-decoration: none;
+    color: var(--ink2);
+    font-size: 14px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    transition: color 0.15s;
+  }
+
+  .toc-list li a:hover { color: var(--accent); }
+
+  .toc-num {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px;
+    color: var(--ink4);
+    flex-shrink: 0;
+  }
+
+  /* ── SECTIONS ─────────────────────────────────────── */
+  .section {
+    margin-bottom: 52px;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sec-num {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 12px;
+    color: var(--ink4);
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+  }
+
+  h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  h3 {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    margin-bottom: 12px;
+    margin-top: 4px;
+  }
+
+  /* ── CARDS / GRIDS ────────────────────────────────── */
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px 22px;
+  }
+
+  .card-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ink);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── SPEC LIST ────────────────────────────────────── */
+  .slist {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .slist li {
+    font-size: 13.5px;
+    color: var(--ink2);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.55;
+  }
+
+  .slist li::before {
+    content: '·';
+    color: var(--border2);
+    font-size: 18px;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+
+  .slist li strong { color: var(--ink); font-weight: 600; }
+
+  /* ── BADGE / TAG ──────────────────────────────────── */
+  .badge {
+    display: inline-block;
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid;
+    font-weight: 500;
+    margin-bottom: 10px;
+  }
+
+  .badge-brown { color: var(--accent); border-color: var(--border2); background: var(--bg2); }
+  .badge-red   { color: var(--red);    border-color: rgba(139,58,42,0.25); background: rgba(139,58,42,0.06); }
+  .badge-blue  { color: var(--blue);   border-color: rgba(42,74,107,0.25); background: rgba(42,74,107,0.06); }
+  .badge-green { color: var(--green);  border-color: rgba(45,90,58,0.25);  background: rgba(45,90,58,0.06); }
+  .badge-gold  { color: var(--gold);   border-color: rgba(139,105,20,0.25); background: rgba(139,105,20,0.06); }
+
+  /* ── RULE CARDS ───────────────────────────────────── */
+  .rule-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0;
+    border: 1px solid var(--border);
+  }
+
+  .rule-card {
+    padding: 22px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .rule-card:last-child { border-right: none; }
+
+  .rule-card:first-child {
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+  }
+
+  @media (max-width: 640px) {
+    .rule-cards { grid-template-columns: 1fr; }
+    .rule-card { border-right: none; border-bottom: 1px solid var(--border); }
+    .rule-card:last-child { border-bottom: none; }
+  }
+
+  .rule-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 12px;
+  }
+
+  /* ── AI LEVELS ────────────────────────────────────── */
+  .ai-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 0;
+    border: 1px solid var(--border);
+  }
+
+  .ai-card {
+    padding: 20px 22px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    position: relative;
+  }
+
+  .ai-card:last-child { border-right: none; }
+
+  .ai-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .ai-card.easy::after   { background: var(--green); }
+  .ai-card.medium::after { background: var(--blue); }
+  .ai-card.hard::after   { background: var(--gold); }
+  .ai-card.ultra::after  { background: var(--red); }
+
+  .ai-name {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: var(--ink);
+  }
+
+  .ai-depth {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px;
+    color: var(--ink4);
+    margin-bottom: 12px;
+    letter-spacing: 0.06em;
+  }
+
+  @media (max-width: 640px) {
+    .ai-grid { grid-template-columns: 1fr 1fr; }
+    .ai-card { border-bottom: 1px solid var(--border); }
+  }
+
+  /* ── ARCHITECTURE ─────────────────────────────────── */
+  .arch {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .arch-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .arch-box {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 9px 18px;
+    border: 1px solid;
+    text-align: center;
+    min-width: 150px;
+    letter-spacing: 0.04em;
+  }
+
+  .arch-box.client  { color: var(--blue);  border-color: rgba(42,74,107,0.35);  background: rgba(42,74,107,0.05); }
+  .arch-box.api     { color: var(--accent); border-color: var(--border2);        background: var(--bg2); }
+  .arch-box.svc     { color: var(--ink2);  border-color: var(--border);          background: var(--bg); }
+  .arch-box.db      { color: var(--green); border-color: rgba(45,90,58,0.35);    background: rgba(45,90,58,0.05); }
+  .arch-box.cache   { color: var(--gold);  border-color: rgba(139,105,20,0.35);  background: rgba(139,105,20,0.05); }
+
+  .arch-arrow {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px;
+    color: var(--ink4);
+    letter-spacing: 0.1em;
+    padding: 2px 0;
+  }
+
+  .arch-label {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink4);
+    width: 100%;
+    text-align: center;
+    margin-bottom: 4px;
+    margin-top: 6px;
+  }
+
+  /* ── CALLOUT ──────────────────────────────────────── */
+  .callout {
+    background: var(--bg2);
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px;
+    font-size: 14px;
+    color: var(--ink2);
+    margin-top: 16px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    line-height: 1.6;
+  }
+
+  .callout strong { color: var(--ink); font-weight: 600; }
+  .callout-ico { flex-shrink: 0; }
+
+  /* ── ROADMAP ──────────────────────────────────────── */
+  .roadmap {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0;
+    border: 1px solid var(--border);
+  }
+
+  .phase {
+    padding: 22px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .phase:last-child { border-right: none; }
+
+  .phase-label {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .phase.mvp .phase-label { color: var(--red); }
+  .phase.v2  .phase-label { color: var(--blue); }
+  .phase.v3  .phase-label { color: var(--green); }
+  .phase.v4  .phase-label { color: var(--gold); }
+
+  .phase-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 14px;
+  }
+
+  @media (max-width: 640px) {
+    .roadmap { grid-template-columns: 1fr 1fr; }
+    .phase { border-bottom: 1px solid var(--border); }
+  }
+
+  /* ── DB ───────────────────────────────────────────── */
+  .db-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .db-tbl {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    min-width: 120px;
+  }
+
+  .db-tbl-name {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--green);
+    margin-bottom: 6px;
+    letter-spacing: 0.04em;
+  }
+
+  .db-field {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px;
+    color: var(--ink4);
+    line-height: 1.8;
+    display: block;
+  }
+
+  .db-field.pk { color: var(--gold); }
+  .db-field.fk { color: var(--blue); }
+
+  /* ── STACK ────────────────────────────────────────── */
+  .stack-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .pill {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 12px;
+    padding: 6px 14px;
+    border: 1px solid;
+    letter-spacing: 0.04em;
+  }
+
+  .pill-brown { color: var(--accent); border-color: var(--border2); background: var(--bg2); }
+  .pill-blue  { color: var(--blue);   border-color: rgba(42,74,107,0.25); background: rgba(42,74,107,0.05); }
+  .pill-green { color: var(--green);  border-color: rgba(45,90,58,0.25);  background: rgba(45,90,58,0.05); }
+  .pill-gray  { color: var(--ink3);   border-color: var(--border);        background: var(--bg); }
+
+  /* ── DIVIDER ──────────────────────────────────────── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 24px 0;
+  }
+
+  /* ── INLINE TWO-COL ───────────────────────────────── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── FOOTER ───────────────────────────────────────── */
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 2px solid var(--accent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .footer-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink2);
+  }
+
+  .footer-note {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px;
+    color: var(--ink4);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── SECURITY GRID ────────────────────────────────── */
+  .sec-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+  }
+
+  .sec-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px 18px;
+  }
+
+  .sec-ico { font-size: 16px; margin-bottom: 6px; }
+  .sec-name { font-weight: 600; font-size: 13px; color: var(--ink); margin-bottom: 4px; }
+  .sec-desc { font-size: 12.5px; color: var(--ink3); line-height: 1.5; }
+
+  /* ── NOTE ─────────────────────────────────────────── */
+  .note {
+    font-size: 12.5px;
+    color: var(--ink4);
+    font-style: italic;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- COVER -->
+  <div class="cover">
+    <div class="cover-left">
+      <div class="doc-label">Техническое задание</div>
+      <h1>Онлайн&#8209;игра<br>в шашки</h1>
+      <p class="cover-desc">Полная спецификация серверной и клиентской архитектуры — от игровой логики и AI-противника до турниров, рейтинговой системы и деплоя.</p>
+    </div>
+    <div class="cover-right">
+      <div class="meta-block">
+        <span class="meta-key">Версия</span>
+        <span class="meta-val">1.0</span>
+      </div>
+      <div class="meta-block">
+        <span class="meta-key">Backend</span>
+        <span class="meta-val">NestJS + PostgreSQL</span>
+      </div>
+      <div class="meta-block">
+        <span class="meta-key">Real-time</span>
+        <span class="meta-val">WebSocket</span>
+      </div>
+      <div class="meta-block">
+        <span class="meta-key">Deploy</span>
+        <span class="meta-val">Docker · Ubuntu 24</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOC -->
+  <div class="toc">
+    <div class="toc-title">Содержание</div>
+    <ul class="toc-list">
+      <li><a href="#s1"><span class="toc-num">01</span> Игровая логика и правила</a></li>
+      <li><a href="#s2"><span class="toc-num">02</span> Настройки лобби</a></li>
+      <li><a href="#s3"><span class="toc-num">03</span> AI-противник</a></li>
+      <li><a href="#s4"><span class="toc-num">04</span> Архитектура системы</a></li>
+      <li><a href="#s5"><span class="toc-num">05</span> Matchmaking</a></li>
+      <li><a href="#s6"><span class="toc-num">06</span> Турниры</a></li>
+      <li><a href="#s7"><span class="toc-num">07</span> Дизайн и платформы</a></li>
+      <li><a href="#s8"><span class="toc-num">08</span> Аккаунты и социальные функции</a></li>
+      <li><a href="#s9"><span class="toc-num">09</span> Рейтинговая система</a></li>
+      <li><a href="#s10"><span class="toc-num">10</span> База данных</a></li>
+      <li><a href="#s11"><span class="toc-num">11</span> Деплой</a></li>
+      <li><a href="#s12"><span class="toc-num">12</span> Безопасность</a></li>
+      <li><a href="#s13"><span class="toc-num">13</span> Этапы разработки</a></li>
+    </ul>
+  </div>
+
+  <!-- 01 GAME LOGIC -->
+  <div class="section" id="s1">
+    <div class="section-head">
+      <span class="sec-num">01</span>
+      <h2>Игровая логика и правила</h2>
+    </div>
+
+    <h3>Поддерживаемые варианты правил</h3>
+    <div class="rule-cards">
+      <div class="rule-card">
+        <span class="badge badge-red">Рекомендуется</span>
+        <div class="rule-name">Русские шашки</div>
+        <ul class="slist">
+          <li>Доска 8×8, 12 шашек на сторону</li>
+          <li>Обязательное взятие</li>
+          <li>Дамка ходит на любое расстояние</li>
+          <li>Множественные взятия разрешены</li>
+        </ul>
+      </div>
+      <div class="rule-card">
+        <div class="rule-name">Международные (10×10)</div>
+        <ul class="slist">
+          <li>Доска 10×10, 20 шашек на сторону</li>
+          <li>Обязательное взятие максимального кол-ва</li>
+          <li>Дамка — дальний ход по диагонали</li>
+          <li>Правило 25/50 ходов без взятия</li>
+        </ul>
+      </div>
+      <div class="rule-card">
+        <div class="rule-name">Английские (Checkers)</div>
+        <ul class="slist">
+          <li>Доска 8×8, 12 шашек на сторону</li>
+          <li>Взятие не обязательно</li>
+          <li>Дамка — только 1 шаг по диагонали</li>
+          <li>Ход только вперёд до получения дамки</li>
+        </ul>
+      </div>
+      <div class="rule-card">
+        <div class="rule-name">Кастомные правила</div>
+        <ul class="slist">
+          <li>Конфигурируемые параметры через JSON</li>
+          <li>Гибкий размер доски</li>
+          <li>Настройка любых механик</li>
+          <li>Опционально, V2+</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 02 LOBBY -->
+  <div class="section" id="s2">
+    <div class="section-head">
+      <span class="sec-num">02</span>
+      <h2>Настройки лобби</h2>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">⚙️ Хост задаёт параметры</div>
+        <ul class="slist">
+          <li><strong>Тип правил</strong> — русские / международные / английские</li>
+          <li><strong>Размер доски</strong> — 8×8 или 10×10</li>
+          <li><strong>Обязательность взятия</strong> — вкл/выкл</li>
+          <li><strong>Множественные взятия</strong> — вкл/выкл</li>
+          <li><strong>Правила дамки</strong> — стандартные / расширенные</li>
+          <li><strong>Таймер</strong> — блиц (3+2, 5+3) / кастом / без ограничений</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">👤 Экран подтверждения игрока 2</div>
+        <ul class="slist">
+          <li>Превью всех настроек игры перед входом</li>
+          <li>Тип правил и размер доски</li>
+          <li>Имя хоста и его текущий рейтинг</li>
+          <li>Время на ход / тип таймера</li>
+          <li>Кнопка подтверждения «Войти в игру»</li>
+          <li>Collapsible блок с правилами во время партии</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 03 AI -->
+  <div class="section" id="s3">
+    <div class="section-head">
+      <span class="sec-num">03</span>
+      <h2>AI-противник</h2>
+    </div>
+
+    <div class="ai-grid">
+      <div class="ai-card easy">
+        <div class="ai-name">Лёгкий</div>
+        <div class="ai-depth">глубина: 1</div>
+        <ul class="slist">
+          <li>Случайные допустимые ходы</li>
+          <li>Соблюдение базовых правил</li>
+          <li>Без оценки позиции</li>
+        </ul>
+      </div>
+      <div class="ai-card medium">
+        <div class="ai-name">Средний</div>
+        <div class="ai-depth">глубина: 2–3</div>
+        <ul class="slist">
+          <li>Minimax</li>
+          <li>Простая оценка позиции</li>
+          <li>Приоритет взятий</li>
+        </ul>
+      </div>
+      <div class="ai-card hard">
+        <div class="ai-name">Сложный</div>
+        <div class="ai-depth">глубина: 4–6</div>
+        <ul class="slist">
+          <li>Minimax + Alpha-Beta pruning</li>
+          <li>Контроль центра доски</li>
+          <li>Эвристика по дамкам</li>
+        </ul>
+      </div>
+      <div class="ai-card ultra">
+        <div class="ai-name">Супер сложный</div>
+        <div class="ai-depth">глубина: 6–8 · опционально</div>
+        <ul class="slist">
+          <li>Transposition table</li>
+          <li>Opening book (дебюты)</li>
+          <li>Динамическая глубина поиска</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="callout-ico">→</span>
+      <div><strong>Рекомендация:</strong> Начать с лёгкого и среднего уровней (Minimax без Alpha-Beta). Оптимизацию и transposition table добавлять итеративно после стабилизации ядра игры.</div>
+    </div>
+  </div>
+
+  <!-- 04 ARCHITECTURE -->
+  <div class="section" id="s4">
+    <div class="section-head">
+      <span class="sec-num">04</span>
+      <h2>Архитектура системы</h2>
+    </div>
+
+    <div class="arch">
+      <div class="arch-label">Клиентский слой</div>
+      <div class="arch-row">
+        <div class="arch-box client">Web (React / Next.js)</div>
+        <div class="arch-box client">PWA (Mobile)</div>
+      </div>
+      <div class="arch-arrow">↕ REST + WebSocket</div>
+      <div class="arch-label">API Gateway</div>
+      <div class="arch-row">
+        <div class="arch-box api">NestJS Backend API</div>
+      </div>
+      <div class="arch-arrow">↕</div>
+      <div class="arch-label">Сервисный слой</div>
+      <div class="arch-row">
+        <div class="arch-box svc">Game Server (WS)</div>
+        <div class="arch-box svc">Matchmaking</div>
+        <div class="arch-box svc">Auth / JWT</div>
+        <div class="arch-box svc">Tournament</div>
+      </div>
+      <div class="arch-arrow">↕</div>
+      <div class="arch-label">Слой данных</div>
+      <div class="arch-row">
+        <div class="arch-box db">PostgreSQL</div>
+        <div class="arch-box cache">Redis (queue + cache)</div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="grid-2">
+      <div>
+        <h3>Сервер хранит и валидирует</h3>
+        <ul class="slist">
+          <li>Аккаунты и профили пользователей</li>
+          <li>Рейтинг и история партий</li>
+          <li>Состояние активных игр</li>
+          <li>Турниры и результаты матчей</li>
+          <li>Очереди matchmaking (Redis)</li>
+          <li><strong>Каждый ход подтверждается сервером</strong></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Клиент обрабатывает локально</h3>
+        <ul class="slist">
+          <li>Рендер доски (Canvas или DOM)</li>
+          <li>AI-логика для игры против компьютера</li>
+          <li>Предварительная валидация ходов (для UX)</li>
+          <li>Анимации и звуковые эффекты</li>
+          <li>Offline-кеш (PWA Service Worker)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="callout-ico">→</span>
+      <div><strong>Рекомендация:</strong> Turn-based + WebSocket как стартовая модель. Сервер подтверждает каждый ход — проще реализовать, проще отлаживать, меньше нагрузки по сравнению с real-time.</div>
+    </div>
+  </div>
+
+  <!-- 05 MATCHMAKING -->
+  <div class="section" id="s5">
+    <div class="section-head">
+      <span class="sec-num">05</span>
+      <h2>Matchmaking</h2>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Быстрая игра</div>
+        <ul class="slist">
+          <li>Случайный соперник из очереди</li>
+          <li>Фильтр по типу правил</li>
+          <li>Диапазон рейтинга ±150 Glicko-2</li>
+          <li>Очередь через Redis pub/sub + TTL</li>
+          <li>Расширение диапазона со временем ожидания</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">Приватная игра</div>
+        <ul class="slist">
+          <li>Создание лобби с уникальным кодом</li>
+          <li>Инвайт-ссылка для друга</li>
+          <li>Полная настройка параметров хостом</li>
+          <li>Экран подтверждения для второго игрока</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 06 TOURNAMENTS -->
+  <div class="section" id="s6">
+    <div class="section-head">
+      <span class="sec-num">06</span>
+      <h2>Турниры</h2>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <h3>Форматы</h3>
+        <ul class="slist">
+          <li><strong>Single Elimination</strong> — на выбывание</li>
+          <li><strong>Double Elimination</strong> — с нижней сеткой</li>
+          <li><strong>Round Robin</strong> — каждый против каждого</li>
+          <li><strong>Swiss</strong> — опционально, V3+</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Управление (администратор)</h3>
+        <ul class="slist">
+          <li>Включение / отключение типов турниров</li>
+          <li>Авто-создание или ручная модерация</li>
+          <li>Сетка турнира с расписанием</li>
+          <li>Автоматическое продвижение победителей</li>
+          <li>Призовые места и рейтинговые очки</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 07 DESIGN -->
+  <div class="section" id="s7">
+    <div class="section-head">
+      <span class="sec-num">07</span>
+      <h2>Дизайн и платформы</h2>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <span class="badge badge-brown">Тема</span>
+        <div class="card-title">Классическая</div>
+        <ul class="slist">
+          <li>Деревянная фактура доски</li>
+          <li>Тёплые нейтральные тона</li>
+          <li>Читаемая типографика</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="badge badge-blue">Тема</span>
+        <div class="card-title">Минимализм</div>
+        <ul class="slist">
+          <li>Плоские геометричные фигуры</li>
+          <li>Монохромная палитра</li>
+          <li>Чёткие границы, без теней</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="badge badge-gold">Тема</span>
+        <div class="card-title">Футуристическая</div>
+        <ul class="slist">
+          <li>Неоновые акценты, glow-эффекты</li>
+          <li>Тёмный фон</li>
+          <li>Анимации при ходах</li>
+        </ul>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="grid-2">
+      <div>
+        <h3>Технические требования</h3>
+        <ul class="slist">
+          <li>2D-рендер — Canvas или DOM</li>
+          <li>Адаптивный дизайн, mobile-first</li>
+          <li>Анимации ходов и взятий</li>
+          <li>Подсветка допустимых ходов (опционально)</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Платформы</h3>
+        <ul class="slist">
+          <li><strong>Web</strong> — React / Next.js</li>
+          <li><strong>Mobile сейчас</strong> — PWA (быстро, хороший UX)</li>
+          <li><strong>Mobile позже</strong> — Android (Kotlin), iOS (Swift)</li>
+          <li class="note">→ Рекомендуется начать с PWA</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 08 ACCOUNTS -->
+  <div class="section" id="s8">
+    <div class="section-head">
+      <span class="sec-num">08</span>
+      <h2>Аккаунты и социальные функции</h2>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">🔐 Авторизация</div>
+        <ul class="slist">
+          <li>Email + пароль (bcrypt)</li>
+          <li>OAuth — Google (обязательно)</li>
+          <li>OAuth — Apple, Discord (опционально)</li>
+          <li>JWT access + refresh токены</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">👤 Профиль игрока</div>
+        <ul class="slist">
+          <li>Имя пользователя и аватар</li>
+          <li>Текущий рейтинг Glicko-2</li>
+          <li>История партий с разбором</li>
+          <li>Статистика побед / поражений / ничьих</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">👥 Социальные функции</div>
+        <ul class="slist">
+          <li>Список друзей</li>
+          <li>Инвайты в игру по имени / ссылке</li>
+          <li>Статус онлайн/оффлайн</li>
+          <li>Блокировка игроков</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">💬 Чат</div>
+        <ul class="slist">
+          <li>Чат в игре (WebSocket)</li>
+          <li>Предустановленные фразы / эмодзи</li>
+          <li>Глобальный лобби-чат (опционально)</li>
+          <li>Модерация и жалобы</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 09 RATING -->
+  <div class="section" id="s9">
+    <div class="section-head">
+      <span class="sec-num">09</span>
+      <h2>Рейтинговая система</h2>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Glicko-2</div>
+      <div class="two-col" style="margin-top: 12px;">
+        <ul class="slist">
+          <li><strong>Рейтинг (r)</strong> — начальное значение 1500</li>
+          <li><strong>Отклонение (RD)</strong> — неопределённость рейтинга</li>
+          <li><strong>Волатильность (σ)</strong> — стабильность результатов</li>
+        </ul>
+        <ul class="slist">
+          <li>Пересчёт после каждого рейтингового периода</li>
+          <li>Увеличение RD при длительном бездействии</li>
+          <li>Корректная оценка новых игроков</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="callout-ico">→</span>
+      <div><strong>Рекомендация:</strong> Glicko-2 предпочтительнее Elo — лучше обрабатывает неактивных игроков и даёт более точную оценку после небольшого числа партий.</div>
+    </div>
+  </div>
+
+  <!-- 10 DATABASE -->
+  <div class="section" id="s10">
+    <div class="section-head">
+      <span class="sec-num">10</span>
+      <h2>База данных (PostgreSQL)</h2>
+    </div>
+
+    <div class="db-wrap">
+      <div class="db-tbl">
+        <div class="db-tbl-name">users</div>
+        <span class="db-field pk">id (PK)</span>
+        <span class="db-field">username</span>
+        <span class="db-field">email</span>
+        <span class="db-field">password_hash</span>
+        <span class="db-field">oauth_provider</span>
+        <span class="db-field">avatar_url</span>
+        <span class="db-field">created_at</span>
+      </div>
+      <div class="db-tbl">
+        <div class="db-tbl-name">games</div>
+        <span class="db-field pk">id (PK)</span>
+        <span class="db-field fk">white_user_id (FK)</span>
+        <span class="db-field fk">black_user_id (FK)</span>
+        <span class="db-field">rules_type</span>
+        <span class="db-field">board_size</span>
+        <span class="db-field">status</span>
+        <span class="db-field">winner_id</span>
+        <span class="db-field">started_at</span>
+        <span class="db-field">ended_at</span>
+      </div>
+      <div class="db-tbl">
+        <div class="db-tbl-name">moves</div>
+        <span class="db-field pk">id (PK)</span>
+        <span class="db-field fk">game_id (FK)</span>
+        <span class="db-field fk">user_id (FK)</span>
+        <span class="db-field">move_number</span>
+        <span class="db-field">from_cell</span>
+        <span class="db-field">to_cell</span>
+        <span class="db-field">captures</span>
+        <span class="db-field">created_at</span>
+      </div>
+      <div class="db-tbl">
+        <div class="db-tbl-name">ratings</div>
+        <span class="db-field pk">id (PK)</span>
+        <span class="db-field fk">user_id (FK)</span>
+        <span class="db-field">rating</span>
+        <span class="db-field">rd</span>
+        <span class="db-field">volatility</span>
+        <span class="db-field">updated_at</span>
+      </div>
+      <div class="db-tbl">
+        <div class="db-tbl-name">tournaments</div>
+        <span class="db-field pk">id (PK)</span>
+        <span class="db-field">name</span>
+        <span class="db-field">format</span>
+        <span class="db-field">status</span>
+        <span class="db-field">rules_type</span>
+        <span class="db-field">max_players</span>
+        <span class="db-field">starts_at</span>
+      </div>
+      <div class="db-tbl">
+        <div class="db-tbl-name">matches</div>
+        <span class="db-field pk">id (PK)</span>
+        <span class="db-field fk">tournament_id (FK)</span>
+        <span class="db-field fk">game_id (FK)</span>
+        <span class="db-field">round</span>
+        <span class="db-field">bracket</span>
+      </div>
+      <div class="db-tbl">
+        <div class="db-tbl-name">friends</div>
+        <span class="db-field pk">id (PK)</span>
+        <span class="db-field fk">user_id (FK)</span>
+        <span class="db-field fk">friend_id (FK)</span>
+        <span class="db-field">status</span>
+        <span class="db-field">created_at</span>
+      </div>
+      <div class="db-tbl">
+        <div class="db-tbl-name">messages</div>
+        <span class="db-field pk">id (PK)</span>
+        <span class="db-field fk">game_id (FK)</span>
+        <span class="db-field fk">sender_id (FK)</span>
+        <span class="db-field">content</span>
+        <span class="db-field">sent_at</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 11 DEPLOY -->
+  <div class="section" id="s11">
+    <div class="section-head">
+      <span class="sec-num">11</span>
+      <h2>Деплой (Ubuntu 24)</h2>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <h3>Технологический стек</h3>
+        <div class="stack-pills">
+          <span class="pill pill-brown">Node.js / NestJS</span>
+          <span class="pill pill-blue">PostgreSQL</span>
+          <span class="pill pill-green">Redis</span>
+          <span class="pill pill-gray">Nginx</span>
+          <span class="pill pill-gray">Docker + Compose</span>
+          <span class="pill pill-green">Let's Encrypt (SSL)</span>
+        </div>
+      </div>
+      <div>
+        <h3>Процесс деплоя</h3>
+        <ul class="slist">
+          <li>Установка Docker + Docker Compose</li>
+          <li>Контейнеры: backend, db, redis, nginx</li>
+          <li>Nginx как reverse proxy (порт 80/443)</li>
+          <li>SSL через Certbot + Let's Encrypt</li>
+          <li>Автозапуск через systemd / docker restart policy</li>
+          <li>GitHub Actions для CI/CD (опционально)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 12 SECURITY -->
+  <div class="section" id="s12">
+    <div class="section-head">
+      <span class="sec-num">12</span>
+      <h2>Безопасность</h2>
+    </div>
+
+    <div class="sec-grid">
+      <div class="sec-item">
+        <div class="sec-ico">🔑</div>
+        <div class="sec-name">JWT авторизация</div>
+        <div class="sec-desc">Access + refresh токены. Хранение refresh в httpOnly cookie.</div>
+      </div>
+      <div class="sec-item">
+        <div class="sec-ico">✅</div>
+        <div class="sec-name">Валидация ходов</div>
+        <div class="sec-desc">Каждый ход проверяется на сервере. Клиент не является источником истины.</div>
+      </div>
+      <div class="sec-item">
+        <div class="sec-ico">🚦</div>
+        <div class="sec-name">Rate limiting</div>
+        <div class="sec-desc">Ограничение запросов по IP и по аккаунту. Redis-счётчики.</div>
+      </div>
+      <div class="sec-item">
+        <div class="sec-ico">📋</div>
+        <div class="sec-name">Логирование</div>
+        <div class="sec-desc">Все ходы записываются. Аудит подозрительных паттернов.</div>
+      </div>
+      <div class="sec-item">
+        <div class="sec-ico">🛡️</div>
+        <div class="sec-name">Input validation</div>
+        <div class="sec-desc">class-validator + Pipes в NestJS. Sanitize всех входных данных.</div>
+      </div>
+      <div class="sec-item">
+        <div class="sec-ico">🔒</div>
+        <div class="sec-name">HTTPS / WSS</div>
+        <div class="sec-desc">Только зашифрованные соединения. HTTP → HTTPS редирект через Nginx.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 13 ROADMAP -->
+  <div class="section" id="s13">
+    <div class="section-head">
+      <span class="sec-num">13</span>
+      <h2>Этапы разработки</h2>
+    </div>
+
+    <div class="roadmap">
+      <div class="phase mvp">
+        <div class="phase-label">MVP · Старт</div>
+        <div class="phase-name">Базовая игра</div>
+        <ul class="slist">
+          <li>Игра 1v1 онлайн</li>
+          <li>Русские шашки (8×8)</li>
+          <li>Аккаунты + JWT</li>
+          <li>Matchmaking (случайный)</li>
+          <li>WebSocket turn-based</li>
+        </ul>
+      </div>
+      <div class="phase v2">
+        <div class="phase-label">V2</div>
+        <div class="phase-name">Рейтинг и AI</div>
+        <ul class="slist">
+          <li>Рейтинг Glicko-2</li>
+          <li>История партий</li>
+          <li>AI-противник (лёгкий / средний)</li>
+          <li>Международные правила (10×10)</li>
+          <li>Профиль игрока</li>
+        </ul>
+      </div>
+      <div class="phase v3">
+        <div class="phase-label">V3</div>
+        <div class="phase-name">Сообщество</div>
+        <ul class="slist">
+          <li>Турниры (Single / Round Robin)</li>
+          <li>Список друзей + инвайты</li>
+          <li>Чат в игре</li>
+          <li>Сложный AI (Alpha-Beta)</li>
+          <li>Темы оформления доски</li>
+        </ul>
+      </div>
+      <div class="phase v4">
+        <div class="phase-label">V4 · Будущее</div>
+        <div class="phase-name">Расширение</div>
+        <ul class="slist">
+          <li>Native mobile (Android / iOS)</li>
+          <li>Супер сложный AI</li>
+          <li>Double Elimination / Swiss</li>
+          <li>Spectator-режим</li>
+          <li>Глобальный чат и лига</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top: 20px;">
+      <span class="callout-ico">→</span>
+      <div><strong>Ключевые рекомендации:</strong> Начинать с Turn-based + WebSocket. Использовать NestJS + PostgreSQL + Redis. Рейтинг — Glicko-2. AI — сначала простой Minimax, потом постепенно улучшать. PWA раньше нативных приложений.</div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-title">Техническое задание — Онлайн-игра в шашки</div>
+    <div class="footer-note">v1.0 · NestJS · PostgreSQL · Redis · Docker</div>
+  </footer>
+
+</div>
+</body>
+</html>

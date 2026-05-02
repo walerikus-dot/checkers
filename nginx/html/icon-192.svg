@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#0a0a10"/>
+  <!-- 4x4 mini checkerboard -->
+  <g transform="translate(32,32)">
+    <rect x="0" y="0" width="32" height="32" fill="#2a2a3a"/>
+    <rect x="32" y="0" width="32" height="32" fill="#1a1a28"/>
+    <rect x="64" y="0" width="32" height="32" fill="#2a2a3a"/>
+    <rect x="96" y="0" width="32" height="32" fill="#1a1a28"/>
+    <rect x="0" y="32" width="32" height="32" fill="#1a1a28"/>
+    <rect x="32" y="32" width="32" height="32" fill="#2a2a3a"/>
+    <rect x="64" y="32" width="32" height="32" fill="#1a1a28"/>
+    <rect x="96" y="32" width="32" height="32" fill="#2a2a3a"/>
+    <rect x="0" y="64" width="32" height="32" fill="#2a2a3a"/>
+    <rect x="32" y="64" width="32" height="32" fill="#1a1a28"/>
+    <rect x="64" y="64" width="32" height="32" fill="#2a2a3a"/>
+    <rect x="96" y="64" width="32" height="32" fill="#1a1a28"/>
+    <rect x="0" y="96" width="32" height="32" fill="#1a1a28"/>
+    <rect x="32" y="96" width="32" height="32" fill="#2a2a3a"/>
+    <rect x="64" y="96" width="32" height="32" fill="#1a1a28"/>
+    <rect x="96" y="96" width="32" height="32" fill="#2a2a3a"/>
+  </g>
+  <!-- Checker piece -->
+  <circle cx="96" cy="96" r="36" fill="#7c5cfc" opacity="0.9"/>
+  <circle cx="96" cy="96" r="28" fill="none" stroke="#a78bfa" stroke-width="2" opacity="0.6"/>
+  <!-- Crown -->
+  <path d="M78 100 L82 86 L90 94 L96 82 L102 94 L110 86 L114 100 Z" fill="#f5f0e8" opacity="0.9"/>
+</svg>

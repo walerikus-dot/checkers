@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkers — Design Proposals</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #fff; }
+
+  /* ── Theme selector ── */
+  .theme-bar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,10,0.95); backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .theme-bar h1 { font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-right: 8px; white-space: nowrap; }
+  .theme-btn {
+    padding: 8px 18px; border-radius: 20px; border: 2px solid transparent;
+    cursor: pointer; font-size: 13px; font-weight: 600; transition: all .2s;
+    white-space: nowrap;
+  }
+  .theme-btn.active { border-color: currentColor; }
+
+  /* ── Layout ── */
+  .wrapper { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; opacity: .4; margin-bottom: 20px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+  @media(max-width:700px) { .grid2,.grid3 { grid-template-columns: 1fr; } }
+  .gap { margin-bottom: 48px; }
+
+  /* ── Board ── */
+  .board-wrap { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  .board { display: grid; border: 3px solid var(--board-border); border-radius: 6px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.5); }
+  .board.sz8 { grid-template-columns: repeat(8,48px); grid-template-rows: repeat(8,48px); }
+  .cell { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
+  .cell.light { background: var(--cell-light); }
+  .cell.dark  { background: var(--cell-dark); }
+  .cell.selected { background: var(--cell-selected); }
+  .cell.valid   { background: var(--cell-valid); }
+  .piece { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+           box-shadow: 0 3px 8px rgba(0,0,0,.4); font-size: 18px; transition: transform .15s; }
+  .piece:hover { transform: scale(1.08); }
+  .piece.white { background: var(--piece-white); border: 2.5px solid var(--piece-white-border); }
+  .piece.black { background: var(--piece-black); border: 2.5px solid var(--piece-black-border); }
+  .piece.selected { box-shadow: 0 0 0 3px var(--accent), 0 3px 8px rgba(0,0,0,.4); }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); opacity: .55; }
+
+  /* ── UI Components ── */
+  .card {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg); padding: 20px;
+  }
+  .card-title { font-size: 13px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 14px; }
+  .btn-primary {
+    background: var(--accent); color: var(--accent-text);
+    border: none; border-radius: var(--radius-md); padding: 13px 24px;
+    font-size: 15px; font-weight: 800; cursor: pointer; width: 100%; transition: opacity .15s;
+  }
+  .btn-primary:hover { opacity: .88; }
+  .btn-secondary {
+    background: transparent; color: var(--text-secondary);
+    border: 1.5px solid var(--card-border); border-radius: var(--radius-md); padding: 11px 24px;
+    font-size: 14px; font-weight: 600; cursor: pointer; width: 100%; transition: all .15s;
+    margin-top: 8px;
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stat-row { display: flex; gap: 8px; margin-top: 12px; }
+  .stat-box { flex: 1; background: var(--stat-bg); border-radius: var(--radius-sm); padding: 10px; text-align: center; }
+  .stat-val { font-size: 20px; font-weight: 800; color: var(--text-primary); }
+  .stat-lbl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+  .big-rating { font-size: 52px; font-weight: 900; color: var(--accent); text-align: center; line-height: 1; }
+  .rating-lbl { font-size: 10px; color: var(--text-muted); text-align: center; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+
+  .chip-row { display: flex; gap: 6px; margin-bottom: 14px; }
+  .chip { flex: 1; padding: 8px 6px; background: var(--chip-bg); border-radius: var(--radius-sm);
+          text-align: center; font-size: 12px; font-weight: 600; color: var(--text-muted); cursor: pointer; }
+  .chip.active { background: var(--accent); color: var(--accent-text); }
+
+  .room-row { display: flex; align-items: center; background: var(--card-bg); border: 1px solid var(--card-border);
+              border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 8px; }
+  .room-host { font-weight: 700; font-size: 14px; color: var(--text-primary); }
+  .room-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .join-btn { margin-left: auto; background: var(--accent); color: var(--accent-text);
+              border: none; border-radius: var(--radius-sm); padding: 7px 16px;
+              font-size: 13px; font-weight: 700; cursor: pointer; }
+
+  .timer-bar { background: var(--card-bg); border-radius: var(--radius-sm); padding: 8px 14px; display: flex; align-items: center; gap: 10px; }
+  .timer-track { flex: 1; height: 6px; background: var(--stat-bg); border-radius: 3px; overflow: hidden; }
+  .timer-fill { height: 100%; background: var(--accent); border-radius: 3px; width: 65%; transition: width 1s linear; }
+  .timer-val { font-size: 14px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+
+  .player-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: var(--accent-text); flex-shrink: 0; }
+  .player-name { font-weight: 700; font-size: 14px; color: var(--text-primary); }
+  .player-sub  { font-size: 12px; color: var(--text-muted); }
+  .captured-dots { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 4px; }
+  .cap-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .cap-dot.w { background: var(--piece-white); border: 1px solid var(--piece-white-border); }
+  .cap-dot.b { background: var(--piece-black); border: 1px solid var(--piece-black-border); }
+
+  .improvement-card {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg); padding: 20px;
+  }
+  .improvement-card h3 { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+  .improvement-card p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700;
+         text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+  .tag.easy { background: rgba(52,211,153,.15); color: #34D399; }
+  .tag.medium { background: rgba(251,191,36,.15); color: #FBBF24; }
+  .tag.big { background: rgba(248,113,113,.15); color: #F87171; }
+
+  /* ──────────────────────────────────────
+     THEME DEFINITIONS
+  ────────────────────────────────────── */
+
+  /* 1 — Amber Dark (current) */
+  .theme-amber {
+    --bg: #111827;
+    --card-bg: #1F2937;
+    --card-border: #374151;
+    --stat-bg: #111827;
+    --chip-bg: #374151;
+    --accent: #F59E0B;
+    --accent-text: #000;
+    --text-primary: #F9FAFB;
+    --text-secondary: #D1D5DB;
+    --text-muted: #6B7280;
+    --cell-light: #F5DEB3;
+    --cell-dark: #8B4513;
+    --cell-selected: #D97706;
+    --cell-valid: #92400E;
+    --board-border: #92400E;
+    --piece-white: #F3F4F6;
+    --piece-white-border: #D1D5DB;
+    --piece-black: #1F2937;
+    --piece-black-border: #374151;
+    --radius-lg: 16px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+  }
+
+  /* 2 — Royal Wood */
+  .theme-wood {
+    --bg: #1C1008;
+    --card-bg: #2A1C0E;
+    --card-border: #4A3520;
+    --stat-bg: #1C1008;
+    --chip-bg: #3A2812;
+    --accent: #C9932A;
+    --accent-text: #fff;
+    --text-primary: #F5E6C8;
+    --text-secondary: #C9A87C;
+    --text-muted: #7A5C38;
+    --cell-light: #DEB887;
+    --cell-dark: #5C3317;
+    --cell-selected: #8B6914;
+    --cell-valid: #6B4E22;
+    --board-border: #3A2006;
+    --piece-white: #F5E6C8;
+    --piece-white-border: #C9A87C;
+    --piece-black: #1C1008;
+    --piece-black-border: #4A3520;
+    --radius-lg: 8px;
+    --radius-md: 6px;
+    --radius-sm: 4px;
+  }
+
+  /* 3 — Neon Arcade */
+  .theme-neon {
+    --bg: #050510;
+    --card-bg: #0D0D20;
+    --card-border: #1A1A3A;
+    --stat-bg: #050510;
+    --chip-bg: #1A1A3A;
+    --accent: #00F5C4;
+    --accent-text: #000;
+    --text-primary: #E0E0FF;
+    --text-secondary: #9090C0;
+    --text-muted: #404070;
+    --cell-light: #1A1A3A;
+    --cell-dark: #0A0A1E;
+    --cell-selected: #004A3A;
+    --cell-valid: #002A20;
+    --board-border: #00F5C4;
+    --piece-white: #C0C0FF;
+    --piece-white-border: #8080FF;
+    --piece-black: #FF3070;
+    --piece-black-border: #CC0050;
+    --radius-lg: 4px;
+    --radius-md: 3px;
+    --radius-sm: 2px;
+  }
+
+  /* 4 — Slate Glass */
+  .theme-glass {
+    --bg: #0F172A;
+    --card-bg: rgba(255,255,255,0.06);
+    --card-border: rgba(255,255,255,0.10);
+    --stat-bg: rgba(255,255,255,0.04);
+    --chip-bg: rgba(255,255,255,0.08);
+    --accent: #818CF8;
+    --accent-text: #fff;
+    --text-primary: #F1F5F9;
+    --text-secondary: #94A3B8;
+    --text-muted: #475569;
+    --cell-light: #E2E8F0;
+    --cell-dark: #334155;
+    --cell-selected: #4F46E5;
+    --cell-valid: #312E81;
+    --board-border: #4F46E5;
+    --piece-white: #F8FAFC;
+    --piece-white-border: #CBD5E1;
+    --piece-black: #0F172A;
+    --piece-black-border: #334155;
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --radius-sm: 10px;
+  }
+
+  /* ── Neon glow effects ── */
+  .theme-neon .board { box-shadow: 0 0 24px rgba(0,245,196,.25), 0 8px 32px rgba(0,0,0,.8); }
+  .theme-neon .btn-primary { box-shadow: 0 0 16px rgba(0,245,196,.4); }
+  .theme-neon .card { box-shadow: inset 0 1px 0 rgba(0,245,196,.08); }
+  .theme-neon .piece.white { box-shadow: 0 0 10px rgba(192,192,255,.4); }
+  .theme-neon .piece.black { box-shadow: 0 0 10px rgba(255,48,112,.4); }
+  .theme-neon .join-btn { box-shadow: 0 0 10px rgba(0,245,196,.3); }
+  .theme-neon .card-title { color: var(--accent); letter-spacing: 2px; }
+
+  /* ── Glass blur ── */
+  .theme-glass .card { backdrop-filter: blur(20px); }
+  .theme-glass .room-row { backdrop-filter: blur(20px); }
+
+  /* ── Wood texture simulation ── */
+  .theme-wood .board { box-shadow: 0 4px 0 #2A1000, 0 8px 32px rgba(0,0,0,.6); }
+  .theme-wood .card { border-left: 3px solid var(--accent); }
+
+  /* theme colors for theme buttons */
+  .tb-amber { background: #F59E0B; color: #000; }
+  .tb-wood  { background: #C9932A; color: #fff; }
+  .tb-neon  { background: #00F5C4; color: #000; }
+  .tb-glass { background: #818CF8; color: #fff; }
+
+  /* Theme panel visibility */
+  .theme-panel { display: none; }
+  .theme-panel.active { display: block; }
+
+  /* ── Improvements section ── */
+  .improvements-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+
+  /* ── Current vs proposed ── */
+  .compare { display: flex; gap: 16px; flex-wrap: wrap; }
+  .compare-item { flex: 1; min-width: 200px; }
+  .compare-label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ── Theme Selector ── -->
+<div class="theme-bar">
+  <h1>Design Proposals</h1>
+  <button class="theme-btn tb-amber active" onclick="setTheme('amber')">1 · Amber Dark (Current)</button>
+  <button class="theme-btn tb-wood"  onclick="setTheme('wood')">2 · Royal Wood</button>
+  <button class="theme-btn tb-neon"  onclick="setTheme('neon')">3 · Neon Arcade</button>
+  <button class="theme-btn tb-glass" onclick="setTheme('glass')">4 · Slate Glass</button>
+</div>
+
+<!-- ── Theme panels ── -->
+<div id="panel-amber" class="theme-panel active theme-amber" style="background:var(--bg); min-height:100vh;">
+  <div class="wrapper">
+    <div style="text-align:center;margin-bottom:40px;">
+      <div style="font-size:28px;font-weight:900;color:#F59E0B;margin-bottom:6px;">Amber Dark</div>
+      <div style="color:#6B7280;font-size:14px;">Your current design — warm amber on deep gray. Familiar, focused.</div>
+    </div>
+    <div id="content-amber"></div>
+  </div>
+</div>
+
+<div id="panel-wood" class="theme-panel theme-wood" style="background:var(--bg); min-height:100vh;">
+  <div class="wrapper">
+    <div style="text-align:center;margin-bottom:40px;">
+      <div style="font-size:28px;font-weight:900;color:#C9932A;margin-bottom:6px;">Royal Wood</div>
+      <div style="color:#7A5C38;font-size:14px;">Traditional board-game aesthetic. Warm walnut tones, gold accents, felt-table feel.</div>
+    </div>
+    <div id="content-wood"></div>
+  </div>
+</div>
+
+<div id="panel-neon" class="theme-panel theme-neon" style="background:var(--bg); min-height:100vh;">
+  <div class="wrapper">
+    <div style="text-align:center;margin-bottom:40px;">
+      <div style="font-size:28px;font-weight:900;color:#00F5C4;margin-bottom:6px;">Neon Arcade</div>
+      <div style="color:#404070;font-size:14px;">Dark universe + electric accents. Cyberpunk gaming energy. Pieces glow.</div>
+    </div>
+    <div id="content-neon"></div>
+  </div>
+</div>
+
+<div id="panel-glass" class="theme-panel theme-glass" style="background:var(--bg); min-height:100vh;">
+  <div class="wrapper">
+    <div style="text-align:center;margin-bottom:40px;">
+      <div style="font-size:28px;font-weight:900;color:#818CF8;margin-bottom:6px;">Slate Glass</div>
+      <div style="color:#475569;font-size:14px;">Frosted glassmorphism, deep navy, indigo accent. Premium, modern, calm.</div>
+    </div>
+    <div id="content-glass"></div>
+  </div>
+</div>
+
+<script>
+// ── Board data ──
+const BOARD_INIT = (() => {
+  const b = Array.from({length:8}, () => Array(8).fill(0));
+  for (let r=0;r<3;r++) for (let c=0;c<8;c++) if((r+c)%2===1) b[r][c]=2;
+  for (let r=5;r<8;r++) for (let c=0;c<8;c++) if((r+c)%2===1) b[r][c]=1;
+  b[4][3] = 0; b[3][4] = 0; // create some empty spots mid-game
+  return b;
+})();
+const SELECTED = [5,2];
+const VALIDS   = [[4,1],[4,3]];
+
+function buildContent(theme) {
+  return `
+  <!-- ── Game Board + Game UI ── -->
+  <p class="section-title">Game Screen</p>
+  <div class="gap grid2">
+    <div class="board-wrap">
+      ${buildBoard(theme)}
+      <div class="timer-bar" style="width:384px;max-width:100%;">
+        <span style="font-size:13px;color:var(--text-muted);">Your turn</span>
+        <div class="timer-track"><div class="timer-fill"></div></div>
+        <span class="timer-val">⏱ 42s</span>
+      </div>
+    </div>
+    <div>
+      <!-- Opponent -->
+      <div class="card" style="margin-bottom:12px;">
+        <div class="player-row">
+          <div class="avatar" style="background:var(--piece-black);color:var(--piece-black-border);">A</div>
+          <div>
+            <div class="player-name">Aleksei</div>
+            <div class="player-sub">1840 ★ · Opponent</div>
+          </div>
+          <div style="margin-left:auto;font-size:13px;color:var(--text-muted);">Captured: 3</div>
+        </div>
+        <div class="captured-dots" style="padding-left:46px;">
+          <div class="cap-dot w"></div><div class="cap-dot w"></div><div class="cap-dot w"></div>
+        </div>
+      </div>
+
+      <!-- You -->
+      <div class="card" style="margin-bottom:12px;border-color:var(--accent);">
+        <div class="player-row">
+          <div class="avatar">V</div>
+          <div>
+            <div class="player-name" style="color:var(--accent);">Valer (you)</div>
+            <div class="player-sub">1765 ★ · White</div>
+          </div>
+          <div style="margin-left:auto;font-size:13px;color:var(--text-muted);">Captured: 1</div>
+        </div>
+        <div class="captured-dots" style="padding-left:46px;">
+          <div class="cap-dot b"></div>
+        </div>
+      </div>
+
+      <!-- Moves -->
+      <div class="card">
+        <div class="card-title">Move History</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:2;font-family:monospace;">
+          <div><span style="color:var(--accent);">W</span> f6→e5 &nbsp; <span style="color:var(--text-secondary);">B</span> c3→d4</div>
+          <div><span style="color:var(--accent);">W</span> g5×e3 &nbsp; <span style="color:var(--text-secondary);">B</span> b4→c3</div>
+          <div><span style="color:var(--accent);">W</span> e5→f4 &nbsp; <span style="color:var(--text-muted);">…</span></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <button class="btn-secondary" style="font-size:12px;padding:7px;">↩ Offer Draw</button>
+          <button class="btn-secondary" style="font-size:12px;padding:7px;border-color:#EF4444;color:#EF4444;">Resign</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Dashboard ── -->
+  <p class="section-title">Dashboard</p>
+  <div class="gap grid2">
+    <div class="card">
+      <div class="card-title">Your Stats</div>
+      <div class="big-rating">1765</div>
+      <div class="rating-lbl">Glicko-2 Rating</div>
+      <div class="stat-row">
+        <div class="stat-box"><div class="stat-val" style="color:#34D399;">34</div><div class="stat-lbl">Wins</div></div>
+        <div class="stat-box"><div class="stat-val" style="color:#F87171;">12</div><div class="stat-lbl">Losses</div></div>
+        <div class="stat-box"><div class="stat-val" style="color:#60A5FA;">5</div><div class="stat-lbl">Draws</div></div>
+        <div class="stat-box"><div class="stat-val">67%</div><div class="stat-lbl">Win rate</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Play</div>
+      <div class="chip-row">
+        <div class="chip active">Russian 8×8</div>
+        <div class="chip">English 8×8</div>
+        <div class="chip">Intl 10×10</div>
+      </div>
+      <div class="chip-row">
+        <div class="chip active">No timer</div>
+        <div class="chip">30s</div>
+        <div class="chip">60s</div>
+      </div>
+      <button class="btn-primary">⚡ Quick Play</button>
+      <button class="btn-secondary">🌐 Guest Lobby</button>
+    </div>
+  </div>
+
+  <!-- ── Lobby ── -->
+  <p class="section-title">Lobby</p>
+  <div class="gap">
+    <div class="room-row">
+      <div><div class="room-host">Mikhail_Pro</div><div class="room-meta">Russian 8×8 · 60s/turn</div></div>
+      <button class="join-btn">Join</button>
+    </div>
+    <div class="room-row">
+      <div><div class="room-host">chess_fan_99</div><div class="room-meta">English 8×8 · no timer 🔒</div></div>
+      <button class="join-btn">Join</button>
+    </div>
+    <div class="room-row">
+      <div><div class="room-host">DraughtsKing</div><div class="room-meta">International 10×10 · 30s/turn</div></div>
+      <button class="join-btn">Join</button>
+    </div>
+  </div>
+  `;
+}
+
+function buildBoard(theme) {
+  const vs = new Set(VALIDS.map(([r,c])=>`${r},${c}`));
+  let html = `<div class="board sz8">`;
+  for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
+    const isDark = (r+c)%2===1;
+    const piece = BOARD_INIT[r][c];
+    const isSel = SELECTED[0]===r&&SELECTED[1]===c;
+    const isVal = vs.has(`${r},${c}`);
+    let cls = `cell ${isDark?'dark':'light'}`;
+    if(isSel) cls+=' selected';
+    if(isVal&&isDark) cls+=' valid';
+    let inner = '';
+    if(piece===1) inner=`<div class="piece white${isSel?' selected':''}"></div>`;
+    if(piece===2) inner=`<div class="piece black"></div>`;
+    if(isVal&&!piece) inner=`<div class="dot"></div>`;
+    html+=`<div class="${cls}">${inner}</div>`;
+  }
+  html+=`</div>`;
+  return html;
+}
+
+// Build improvements section (same for all themes)
+function buildImprovements() {
+  return `
+  <p class="section-title" style="margin-top:48px;">Improvement Proposals</p>
+  <div class="improvements-grid">
+    <div class="improvement-card">
+      <span class="tag easy">Easy · Visual</span>
+      <h3>♟ Piece animations</h3>
+      <p>Smooth slide animation when a piece moves, pop effect on capture, bounce on promotion to king.</p>
+    </div>
+    <div class="improvement-card">
+      <span class="tag easy">Easy · UX</span>
+      <h3>🔔 Turn sound</h3>
+      <p>Subtle click on piece select, wooden thud on move, capture pop, king fanfare. Toggle in settings.</p>
+    </div>
+    <div class="improvement-card">
+      <span class="tag easy">Easy · Visual</span>
+      <h3>⏱ Circular turn timer</h3>
+      <p>Replace linear bar with circular progress ring around the active player's avatar. More dramatic tension.</p>
+    </div>
+    <div class="improvement-card">
+      <span class="tag easy">Easy · UX</span>
+      <h3>📋 Move history panel</h3>
+      <p>Scrollable move list (algebraic notation) with last move highlighted. Useful for analysis and review.</p>
+    </div>
+    <div class="improvement-card">
+      <span class="tag medium">Medium · Feature</span>
+      <h3>🤖 AI Opponent (offline)</h3>
+      <p>Play against minimax AI (3 difficulty levels) without internet. Engine is already ported to mobile — just needs a UI toggle.</p>
+    </div>
+    <div class="improvement-card">
+      <span class="tag medium">Medium · Feature</span>
+      <h3>📱 Haptic feedback</h3>
+      <p>Light vibration on piece selection, stronger on capture, pattern on game end. Native RN Haptics API.</p>
+    </div>
+    <div class="improvement-card">
+      <span class="tag medium">Medium · UX</span>
+      <h3>🎯 Last-move highlight</h3>
+      <p>After opponent moves, highlight the from/to squares in a subtle tint so you can always see what changed.</p>
+    </div>
+    <div class="improvement-card">
+      <span class="tag medium">Medium · Feature</span>
+      <h3>🌍 Board coordinates</h3>
+      <p>Show row (1–8) and column (a–h) labels along the board edges. Switchable option for beginners.</p>
+    </div>
+    <div class="improvement-card">
+      <span class="tag big">Big · Feature</span>
+      <h3>🏆 Tournament brackets</h3>
+      <p>Join or create tournaments with bracket UI — auto-match rounds, live bracket view, podium results.</p>
+    </div>
+    <div class="improvement-card">
+      <span class="tag big">Big · Feature</span>
+      <h3>🎬 Game replay</h3>
+      <p>Step through any past game move-by-move on the board (not just a table). Export as GIF or share link.</p>
+    </div>
+    <div class="improvement-card">
+      <span class="tag big">Big · Feature</span>
+      <h3>💬 In-game chat</h3>
+      <p>Quick-message panel during game (preset phrases + free text). Backend messages entity already exists.</p>
+    </div>
+    <div class="improvement-card">
+      <span class="tag big">Big · Feature</span>
+      <h3>📊 Stats deep-dive</h3>
+      <p>Per-ruleset win rates, average game length, rating history chart, streaks, best wins. Profile enhancement.</p>
+    </div>
+  </div>
+  `;
+}
+
+// ── Init ──
+['amber','wood','neon','glass'].forEach(t => {
+  document.getElementById(`content-${t}`).innerHTML = buildContent(t) + buildImprovements();
+});
+
+function setTheme(name) {
+  document.querySelectorAll('.theme-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`panel-${name}`).classList.add('active');
+  event.target.classList.add('active');
+  // scroll to top
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+</script>
+</body>
+</html>

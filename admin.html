@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkers Admin</title>
+<style>
+:root{--bg:#0f0f23;--card:#1a1a2e;--border:#2a2a4a;--text:#e0e0e0;--muted:#888;--accent:#7c5cbf;--accent2:#5eead4;--red:#f87171;--green:#4ade80;--yellow:#fbbf24}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+/* Login */
+#login-screen{display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px}
+#login-screen h1{font-size:24px;color:var(--accent)}
+#login-screen input{padding:12px 16px;width:280px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:15px}
+#login-screen button{padding:12px 32px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:15px;cursor:pointer}
+#login-screen button:hover{opacity:.85}
+#login-err{color:var(--red);font-size:13px;min-height:20px}
+/* Layout */
+#app{display:none}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:18px;color:var(--accent)}
+header .hdr-right{display:flex;gap:12px;align-items:center}
+header .hdr-right span{color:var(--muted);font-size:13px}
+header button{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:13px}
+header button:hover{background:var(--border)}
+nav{background:var(--card);border-bottom:1px solid var(--border);display:flex;gap:0}
+nav button{flex:1;padding:12px 0;border:none;background:transparent;color:var(--muted);font-size:14px;cursor:pointer;border-bottom:2px solid transparent;transition:.2s}
+nav button.active{color:var(--accent2);border-bottom-color:var(--accent2)}
+nav button:hover{color:var(--text)}
+main{max-width:1200px;margin:0 auto;padding:20px}
+/* Cards */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;text-align:center}
+.stat-card .num{font-size:32px;font-weight:700;color:var(--accent2)}
+.stat-card .lbl{font-size:13px;color:var(--muted);margin-top:4px}
+/* Table */
+.tbl-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.tbl-bar{padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+.tbl-bar input{flex:1;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px}
+.tbl-bar button{padding:8px 16px;border-radius:6px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 14px;text-align:left;font-size:13px;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-weight:600;cursor:pointer;user-select:none}
+th:hover{color:var(--text)}
+th.sorted::after{content:' ▼';font-size:10px}
+th.sorted.asc::after{content:' ▲'}
+tr:hover{background:rgba(124,92,191,.08)}
+.online-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.online-dot.on{background:var(--green)}
+.online-dot.off{background:var(--muted)}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge-oauth{background:rgba(94,234,212,.15);color:var(--accent2)}
+.badge-local{background:rgba(124,92,191,.15);color:var(--accent)}
+/* Pagination */
+.paging{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border)}
+.paging span{font-size:13px;color:var(--muted)}
+.paging .pg-btns{display:flex;gap:6px}
+.paging button{padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:13px}
+.paging button:disabled{opacity:.4;cursor:default}
+.paging button.cur{background:var(--accent);border-color:var(--accent);color:#fff}
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100;display:none}
+.modal-bg.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;min-width:400px;max-width:500px;max-height:80vh;overflow-y:auto}
+.modal h2{font-size:18px;margin-bottom:16px;color:var(--accent2)}
+.modal .field{margin-bottom:12px}
+.modal .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.modal .field .val{font-size:14px}
+.modal .actions{display:flex;gap:10px;margin-top:20px}
+.modal button{padding:8px 18px;border-radius:6px;border:none;cursor:pointer;font-size:13px}
+.modal .btn-close{background:var(--border);color:var(--text)}
+.modal .btn-reset{background:var(--red);color:#fff}
+.modal .btn-reset:hover{opacity:.85}
+.modal .reset-result{margin-top:12px;padding:12px;background:rgba(74,222,128,.1);border:1px solid var(--green);border-radius:8px;font-size:13px}
+.modal .reset-result code{background:var(--bg);padding:2px 8px;border-radius:4px;font-weight:700;color:var(--yellow)}
+/* Bug reports */
+.report-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px}
+.report-card .report-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.report-card .report-hdr .ts{font-size:12px;color:var(--muted)}
+.report-card .report-hdr button{padding:4px 10px;border-radius:4px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;font-size:11px}
+.report-card pre{font-size:12px;color:var(--text);white-space:pre-wrap;word-break:break-all;background:var(--bg);padding:10px;border-radius:6px;max-height:200px;overflow-y:auto}
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+/* Chart */
+.chart-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:24px}
+.chart-wrap h3{font-size:14px;color:var(--muted);margin-bottom:12px}
+.bar-chart{display:flex;align-items:flex-end;gap:4px;height:100px}
+.bar-chart .bar{flex:1;background:var(--accent);border-radius:3px 3px 0 0;position:relative;min-width:12px;transition:.3s}
+.bar-chart .bar:hover{background:var(--accent2)}
+.bar-chart .bar .bar-tip{position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--muted);white-space:nowrap;display:none}
+.bar-chart .bar:hover .bar-tip{display:block}
+.bar-labels{display:flex;gap:4px;margin-top:4px}
+.bar-labels span{flex:1;text-align:center;font-size:9px;color:var(--muted);min-width:12px}
+/* Tournament + Schedule UI */
+.form-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px}
+.form-card h3{font-size:14px;color:var(--accent2);margin-bottom:12px}
+.form-row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.form-row .field{flex:1;min-width:120px}
+.form-row .field label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+.form-row input,.form-row select{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px}
+.form-row button{padding:8px 16px;border-radius:6px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;white-space:nowrap}
+.form-row button:hover{opacity:.85}
+.preset-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.preset-chips button{padding:4px 10px;border-radius:14px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:11px}
+.preset-chips button:hover{color:var(--accent2);border-color:var(--accent2)}
+.t-status{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;text-transform:uppercase}
+.t-status.pending{background:rgba(251,191,36,.15);color:var(--yellow)}
+.t-status.active{background:rgba(94,234,212,.15);color:var(--accent2)}
+.t-status.completed{background:rgba(124,92,191,.15);color:var(--accent)}
+.t-status.cancelled{background:rgba(248,113,113,.15);color:var(--red)}
+.t-actions{display:flex;gap:6px;flex-wrap:wrap}
+.t-actions button{padding:5px 10px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:11px}
+.t-actions button:hover{background:var(--border)}
+.t-actions button.danger{border-color:var(--red);color:var(--red)}
+.t-actions button.primary{border-color:var(--accent2);color:var(--accent2)}
+.toggle{position:relative;display:inline-block;width:36px;height:20px;cursor:pointer}
+.toggle input{display:none}
+.toggle .sl{position:absolute;inset:0;background:var(--border);border-radius:20px;transition:.2s}
+.toggle .sl::before{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.2s}
+.toggle input:checked+.sl{background:var(--accent2)}
+.toggle input:checked+.sl::before{transform:translateX(16px)}
+.match-row{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border);font-size:13px}
+.match-row:last-child{border-bottom:none}
+.match-row .rnd{font-size:10px;color:var(--muted);width:50px}
+.match-row .player{flex:1;padding:4px 8px;border-radius:4px}
+.match-row .player.winner{background:rgba(94,234,212,.15);color:var(--accent2);font-weight:600}
+.match-row .vs{color:var(--muted);font-size:11px}
+.match-row .ctl{display:flex;gap:4px}
+.match-row .ctl button{padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:11px}
+.match-row .ctl button:hover{background:var(--border)}
+.match-row .bye{color:var(--muted);font-style:italic;font-size:11px}
+.de-sec.de-wb{border-color:rgba(94,234,212,0.4)!important}
+.de-sec.de-wb .de-sec-title{background:rgba(94,234,212,0.1);color:var(--accent2)}
+.de-sec.de-lb{border-color:rgba(251,191,36,0.4)!important}
+.de-sec.de-lb .de-sec-title{background:rgba(251,191,36,0.1);color:var(--yellow)}
+.de-sec.de-gf{border-color:rgba(255,215,0,0.5)!important}
+.de-sec.de-gf .de-sec-title{background:rgba(255,215,0,0.12);color:#ffd166}
+@media(max-width:600px){
+  main{padding:12px}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .modal{min-width:auto;margin:16px}
+  table{font-size:12px}
+  th,td{padding:8px 6px}
+  .form-row .field{min-width:100%}
+}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen">
+  <h1>Checkers Admin</h1>
+  <input type="password" id="admin-key" placeholder="Admin key" onkeydown="if(event.key==='Enter')doLogin()">
+  <button onclick="doLogin()">Sign In</button>
+  <div id="login-err"></div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <header>
+    <h1>Checkers Admin</h1>
+    <div class="hdr-right">
+      <span id="hdr-info"></span>
+      <button onclick="doLogout()">Sign Out</button>
+    </div>
+  </header>
+  <nav>
+    <button class="active" data-tab="dashboard" onclick="switchTab('dashboard',this)">Dashboard</button>
+    <button data-tab="users" onclick="switchTab('users',this)">Users</button>
+    <button data-tab="reports" onclick="switchTab('reports',this)">Bug Reports</button>
+    <button data-tab="tournaments" onclick="switchTab('tournaments',this)">Tournaments</button>
+    <button data-tab="schedules" onclick="switchTab('schedules',this)">Schedules</button>
+  </nav>
+  <main>
+    <section id="tab-dashboard"></section>
+    <section id="tab-users" style="display:none"></section>
+    <section id="tab-reports" style="display:none"></section>
+    <section id="tab-tournaments" style="display:none"></section>
+    <section id="tab-schedules" style="display:none"></section>
+  </main>
+</div>
+
+<!-- User detail modal -->
+<div class="modal-bg" id="user-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="user-modal-body"></div>
+</div>
+
+<!-- Bracket modal -->
+<div class="modal-bg" id="bracket-modal" onclick="if(event.target===this)closeBracket()">
+  <div class="modal" id="bracket-modal-body" style="min-width:520px;max-width:720px"></div>
+</div>
+
+<script>
+const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:3001/api'
+  : 'https://chashki.duckdns.org/api';
+
+let adminKey = sessionStorage.getItem('adminKey') || '';
+let usersPage = 1;
+let usersSort = 'createdAt';
+let usersOrder = 'DESC';
+let usersSearch = '';
+
+/* ── Auth ──────────────────────────────────── */
+
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey, ...(opts.headers || {}) },
+  });
+  if (res.status === 401) { doLogout(); throw new Error('Unauthorized'); }
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+function doLogin() {
+  adminKey = document.getElementById('admin-key').value.trim();
+  if (!adminKey) return;
+  sessionStorage.setItem('adminKey', adminKey);
+  apiFetch('/admin/stats').then(() => {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadDashboard();
+  }).catch(() => {
+    document.getElementById('login-err').textContent = 'Invalid admin key';
+    sessionStorage.removeItem('adminKey');
+  });
+}
+
+function doLogout() {
+  adminKey = '';
+  sessionStorage.removeItem('adminKey');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('admin-key').value = '';
+  document.getElementById('login-err').textContent = '';
+}
+
+/* ── Tabs ──────────────────────────────────── */
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('main > section').forEach(s => s.style.display = 'none');
+  document.getElementById('tab-' + tab).style.display = 'block';
+  if (tab === 'dashboard') loadDashboard();
+  else if (tab === 'users') loadUsers();
+  else if (tab === 'reports') loadReports();
+  else if (tab === 'tournaments') loadTournaments();
+  else if (tab === 'schedules') loadSchedules();
+}
+
+/* ── Tournaments ───────────────────────────── */
+
+let _tFilter = 'all';
+
+async function loadTournaments() {
+  const list = await apiFetch('/tournaments');
+  const filtered = _tFilter === 'all' ? list : list.filter(t => t.status === _tFilter);
+
+  const fmtMap   = { single_elimination: 'SE', round_robin: 'RR', double_elimination: 'DE' };
+  const rulesMap = { russian: 'RU', english: 'EN', international: 'INT' };
+
+  let html = `<div class="form-card">
+    <h3>➕ Create Tournament</h3>
+    <div class="form-row">
+      <div class="field"><label>Name</label><input id="t-name" placeholder="Friday Cup"></div>
+      <div class="field"><label>Format</label>
+        <select id="t-format">
+          <option value="single_elimination">Single Elimination</option>
+          <option value="round_robin">Round Robin</option>
+          <option value="double_elimination">Double Elimination</option>
+        </select>
+      </div>
+      <div class="field"><label>Rules</label>
+        <select id="t-rules">
+          <option value="russian">Russian</option>
+          <option value="english">English</option>
+          <option value="international">International</option>
+        </select>
+      </div>
+      <div class="field" style="max-width:90px"><label>Max</label><input id="t-max" type="number" value="8" min="2" max="64"></div>
+      <div class="field"><label>Starts At</label><input id="t-startsAt" type="datetime-local"></div>
+      <button onclick="createTournament()">➕ Create</button>
+    </div>
+  </div>`;
+
+  html += `<div class="tbl-wrap">
+    <div class="tbl-bar">
+      <select onchange="_tFilter=this.value;loadTournaments()" style="flex:0 0 auto;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px">
+        <option value="all"${_tFilter==='all'?' selected':''}>All (${list.length})</option>
+        <option value="pending"${_tFilter==='pending'?' selected':''}>Pending</option>
+        <option value="active"${_tFilter==='active'?' selected':''}>Active</option>
+        <option value="completed"${_tFilter==='completed'?' selected':''}>Completed</option>
+        <option value="cancelled"${_tFilter==='cancelled'?' selected':''}>Cancelled</option>
+      </select>
+      <span style="flex:1;color:var(--muted);font-size:13px">${filtered.length} shown</span>
+      <button onclick="loadTournaments()">↻ Refresh</button>
+    </div>
+    <table><thead><tr>
+      <th>Name</th><th>Status</th><th>Format</th><th>Rules</th><th>Players</th><th>Starts At</th><th>Actions</th>
+    </tr></thead><tbody>`;
+
+  if (!filtered.length) {
+    html += `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No tournaments</td></tr>`;
+  } else {
+    filtered.forEach(t => {
+      const startsAt = t.startsAt ? new Date(t.startsAt).toLocaleString() : '—';
+      const isPending = t.status === 'pending';
+      const isActive  = t.status === 'active';
+      const actions = [];
+      if (isPending) actions.push(`<button class="primary" onclick="startTournament('${t.id}')">▶ Start</button>`);
+      if (isPending || isActive) actions.push(`<button class="danger" onclick="cancelTournament('${t.id}')">✕ Cancel</button>`);
+      if (!isPending) actions.push(`<button onclick="viewBracket('${t.id}','${esc(t.name)}')">👁 View</button>`);
+      html += `<tr>
+        <td><strong>${esc(t.name)}</strong></td>
+        <td><span class="t-status ${t.status}">${t.status}</span></td>
+        <td>${fmtMap[t.format] || t.format}</td>
+        <td>${rulesMap[t.rulesType] || t.rulesType}</td>
+        <td>${t.participantCount || 0}/${t.maxPlayers}</td>
+        <td>${startsAt}</td>
+        <td><div class="t-actions">${actions.join('')}</div></td>
+      </tr>`;
+    });
+  }
+  html += `</tbody></table></div>`;
+
+  document.getElementById('tab-tournaments').innerHTML = html;
+}
+
+async function createTournament() {
+  const name      = document.getElementById('t-name').value.trim();
+  const format    = document.getElementById('t-format').value;
+  const rulesType = document.getElementById('t-rules').value;
+  const maxPlayers= parseInt(document.getElementById('t-max').value) || 8;
+  const startsAtV = document.getElementById('t-startsAt').value;
+  if (!name) { alert('Name required'); return; }
+  const body = { name, format, rulesType, maxPlayers };
+  if (startsAtV) body.startsAt = new Date(startsAtV).toISOString();
+  try {
+    await apiFetch('/tournaments/admin-create', { method: 'POST', body: JSON.stringify(body) });
+    loadTournaments();
+  } catch(e) { alert('Create failed: ' + e.message); }
+}
+
+async function startTournament(id) {
+  if (!confirm('Start this tournament now?')) return;
+  try { await apiFetch('/tournaments/' + id + '/start', { method: 'POST', body: '{}' }); loadTournaments(); }
+  catch(e) { alert('Start failed: ' + e.message); }
+}
+
+async function cancelTournament(id) {
+  if (!confirm('Cancel this tournament?')) return;
+  try { await apiFetch('/tournaments/' + id + '/cancel', { method: 'POST', body: '{}' }); loadTournaments(); }
+  catch(e) { alert('Cancel failed: ' + e.message); }
+}
+
+async function viewBracket(id, name) {
+  document.getElementById('bracket-modal-body').innerHTML = `<h2>${esc(name)}</h2><div style="color:var(--muted);font-size:13px">Loading…</div>`;
+  document.getElementById('bracket-modal').classList.add('show');
+  try {
+    const data = await apiFetch('/tournaments/' + id + '/bracket');
+    renderBracketAdmin(id, name, data);
+  } catch(e) {
+    document.getElementById('bracket-modal-body').innerHTML = `<h2>${esc(name)}</h2><div style="color:var(--red);font-size:13px">Bracket load failed: ${esc(e.message)}</div><div class="actions"><button class="btn-close" onclick="closeBracket()">Close</button></div>`;
+  }
+}
+
+function _renderMatchRow(id, m) {
+  const p1 = m.player1?.username || (m.player1Id ? '?' : '—');
+  const p2 = m.player2?.username || (m.player2Id ? '?' : '—');
+  const isBye = m.status === 'bye';
+  const isDone = m.status === 'done';
+  const w1 = isDone && m.winnerId === m.player1Id;
+  const w2 = isDone && m.winnerId === m.player2Id;
+  let ctl = '';
+  if (m.status === 'ready') {
+    ctl = `<div class="ctl">
+      <button onclick="reportResult('${id}','${m.id}','${m.player1Id}')">Win 1</button>
+      <button onclick="reportResult('${id}','${m.id}','${m.player2Id}')">Win 2</button>
+      <button onclick="reportResult('${id}','${m.id}',null)">Draw</button>
+    </div>`;
+  } else if (isBye) {
+    ctl = `<span class="bye">BYE</span>`;
+  } else if (isDone) {
+    ctl = `<span style="font-size:11px;color:var(--accent2)">✓ Done</span>`;
+  } else {
+    ctl = `<span style="font-size:11px;color:var(--muted)">waiting</span>`;
+  }
+  return `<div class="match-row">
+    <span class="rnd">M${m.position+1}</span>
+    <span class="player ${w1?'winner':''}">${esc(p1)}</span>
+    <span class="vs">vs</span>
+    <span class="player ${w2?'winner':''}">${esc(p2)}</span>
+    ${ctl}
+  </div>`;
+}
+
+function _renderRoundsAdmin(id, rounds) {
+  let html = '';
+  rounds.forEach(r => {
+    html += `<div style="background:var(--bg);padding:6px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">${esc(r.label)}</div>`;
+    r.matches.forEach(m => { html += _renderMatchRow(id, m); });
+  });
+  return html;
+}
+
+function renderBracketAdmin(id, name, data) {
+  const isRR = data.format === 'round_robin';
+  const isDE = data.format === 'double_elimination';
+  const fmtLabel = isRR ? 'Round Robin' : isDE ? 'Double Elimination' : 'Single Elimination';
+  let html = `<h2>🏆 ${esc(name)} <span style="font-size:11px;color:var(--muted);font-weight:normal">${fmtLabel}</span></h2>`;
+
+  if (isRR && data.standings && data.standings.length) {
+    html += `<div style="margin-bottom:14px"><h3 style="font-size:13px;color:var(--muted);margin-bottom:6px">Standings</h3>
+      <table style="width:100%"><thead><tr><th>#</th><th>Player</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr></thead><tbody>`;
+    data.standings.forEach((s, i) => {
+      html += `<tr><td>${i+1}</td><td>${esc(s.user?.username||'—')}${i===0&&s.points>0?' 🏆':''}</td><td>${s.wins}</td><td>${s.draws}</td><td>${s.losses}</td><td><strong>${s.points}</strong></td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  if (isDE) {
+    const wb = data.rounds.filter(r => r.bracket === 'winners');
+    const lb = data.rounds.filter(r => r.bracket === 'losers');
+    const gf = data.rounds.filter(r => r.bracket === 'grand');
+    const sec = (cls, title, rounds) => `
+      <div class="de-sec ${cls}" style="margin-bottom:10px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+        <div class="de-sec-title" style="padding:6px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${title}</div>
+        ${_renderRoundsAdmin(id, rounds)}
+      </div>`;
+    html += `<div style="max-height:380px;overflow-y:auto">
+      ${sec('de-wb', '🏆 Winners Bracket', wb)}
+      ${sec('de-lb', '🥈 Losers Bracket', lb)}
+      ${sec('de-gf', '👑 Grand Final', gf)}
+    </div>`;
+  } else {
+    html += `<div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:6px">${_renderRoundsAdmin(id, data.rounds)}</div>`;
+  }
+
+  html += `<div class="actions"><button class="btn-close" onclick="closeBracket()">Close</button></div>`;
+  document.getElementById('bracket-modal-body').innerHTML = html;
+}
+
+async function reportResult(tid, mid, winnerId) {
+  try {
+    await apiFetch('/tournaments/' + tid + '/matches/' + mid + '/result', {
+      method: 'POST',
+      body: JSON.stringify({ winnerId }),
+    });
+    const t = await apiFetch('/tournaments/' + tid);
+    viewBracket(tid, t.name);
+    loadTournaments();
+  } catch(e) { alert('Report failed: ' + e.message); }
+}
+
+function closeBracket() { document.getElementById('bracket-modal').classList.remove('show'); }
+
+/* ── Schedules ─────────────────────────────── */
+
+const CRON_PRESETS = [
+  { label: 'Daily 18:00', cron: '0 18 * * *' },
+  { label: 'Weekly Fri 18:00', cron: '0 18 * * 5' },
+  { label: 'Weekly Sat 12:00', cron: '0 12 * * 6' },
+  { label: 'Every 6h', cron: '0 */6 * * *' },
+];
+
+async function loadSchedules() {
+  const list = await apiFetch('/tournaments/schedules/list');
+  const fmtMap   = { single_elimination: 'SE', round_robin: 'RR', double_elimination: 'DE' };
+  const rulesMap = { russian: 'RU', english: 'EN', international: 'INT' };
+
+  let html = `<div class="form-card">
+    <h3>➕ Create Schedule</h3>
+    <div class="form-row">
+      <div class="field"><label>Name</label><input id="s-name" placeholder="Weekly Russian"></div>
+      <div class="field"><label>Format</label>
+        <select id="s-format">
+          <option value="single_elimination">SE</option>
+          <option value="round_robin">RR</option>
+          <option value="double_elimination">DE</option>
+        </select>
+      </div>
+      <div class="field"><label>Rules</label>
+        <select id="s-rules">
+          <option value="russian">Russian</option>
+          <option value="english">English</option>
+          <option value="international">International</option>
+        </select>
+      </div>
+      <div class="field" style="max-width:80px"><label>Max</label><input id="s-max" type="number" value="8" min="2" max="64"></div>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <div class="field" style="flex:2"><label>Cron Expression</label><input id="s-cron" placeholder="0 18 * * 5"></div>
+      <div class="field" style="max-width:120px"><label>Reg. Hours</label><input id="s-reg" type="number" value="2" min="0" max="168"></div>
+      <div class="field" style="max-width:90px;display:flex;align-items:center;gap:6px"><label style="margin:0">Enabled</label><label class="toggle"><input id="s-enabled" type="checkbox" checked><span class="sl"></span></label></div>
+      <button onclick="createSchedule()">➕ Save</button>
+    </div>
+    <div class="preset-chips">
+      <span style="font-size:11px;color:var(--muted);align-self:center">Presets:</span>
+      ${CRON_PRESETS.map(p => `<button onclick="document.getElementById('s-cron').value='${p.cron}'">${p.label}</button>`).join('')}
+    </div>
+  </div>`;
+
+  html += `<div class="tbl-wrap">
+    <div class="tbl-bar">
+      <span style="flex:1;color:var(--muted);font-size:13px">${list.length} schedule(s)</span>
+      <button onclick="loadSchedules()">↻ Refresh</button>
+    </div>
+    <table><thead><tr>
+      <th>Name</th><th>Format</th><th>Cron</th><th>Next Run</th><th>Reg. Hrs</th><th>Enabled</th><th>Actions</th>
+    </tr></thead><tbody>`;
+
+  if (!list.length) {
+    html += `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No schedules yet</td></tr>`;
+  } else {
+    list.forEach(s => {
+      const next = s.nextRunAt ? new Date(s.nextRunAt).toLocaleString() : '—';
+      html += `<tr>
+        <td><strong>${esc(s.name)}</strong></td>
+        <td>${fmtMap[s.format]} · ${rulesMap[s.rulesType]} · ${s.maxPlayers}p</td>
+        <td><code style="font-size:11px;color:var(--accent2)">${esc(s.cronExpression)}</code></td>
+        <td>${next}</td>
+        <td>${s.registrationHours}h</td>
+        <td><label class="toggle"><input type="checkbox" ${s.enabled?'checked':''} onchange="toggleSchedule('${s.id}',this.checked)"><span class="sl"></span></label></td>
+        <td><div class="t-actions">
+          <button class="danger" onclick="deleteSchedule('${s.id}')">✕ Delete</button>
+        </div></td>
+      </tr>`;
+    });
+  }
+  html += `</tbody></table></div>`;
+
+  document.getElementById('tab-schedules').innerHTML = html;
+}
+
+async function createSchedule() {
+  const body = {
+    name: document.getElementById('s-name').value.trim(),
+    format: document.getElementById('s-format').value,
+    rulesType: document.getElementById('s-rules').value,
+    maxPlayers: parseInt(document.getElementById('s-max').value) || 8,
+    cronExpression: document.getElementById('s-cron').value.trim(),
+    registrationHours: parseInt(document.getElementById('s-reg').value) || 2,
+    enabled: document.getElementById('s-enabled').checked,
+  };
+  if (!body.name || !body.cronExpression) { alert('Name and cron expression required'); return; }
+  try {
+    await apiFetch('/tournaments/schedules', { method: 'POST', body: JSON.stringify(body) });
+    loadSchedules();
+  } catch(e) { alert('Create failed: ' + e.message); }
+}
+
+async function toggleSchedule(id, enabled) {
+  try { await apiFetch('/tournaments/schedules/' + id, { method: 'PATCH', body: JSON.stringify({ enabled }) }); loadSchedules(); }
+  catch(e) { alert('Toggle failed: ' + e.message); loadSchedules(); }
+}
+
+async function deleteSchedule(id) {
+  if (!confirm('Delete this schedule?')) return;
+  try { await apiFetch('/tournaments/schedules/' + id, { method: 'DELETE' }); loadSchedules(); }
+  catch(e) { alert('Delete failed: ' + e.message); }
+}
+
+/* ── Dashboard ─────────────────────────────── */
+
+async function loadDashboard() {
+  const d = await apiFetch('/admin/stats');
+  document.getElementById('hdr-info').textContent = d.totalUsers + ' users';
+
+  const statusMap = {};
+  (d.gamesByStatus || []).forEach(g => statusMap[g.status] = parseInt(g.count));
+
+  let html = `<div class="stats-grid">
+    <div class="stat-card"><div class="num">${d.totalUsers}</div><div class="lbl">Total Users</div></div>
+    <div class="stat-card"><div class="num">${d.onlineUsers}</div><div class="lbl">Online Now</div></div>
+    <div class="stat-card"><div class="num">${d.totalGames}</div><div class="lbl">Total Games</div></div>
+    <div class="stat-card"><div class="num">${statusMap.completed || 0}</div><div class="lbl">Completed</div></div>
+    <div class="stat-card"><div class="num">${statusMap.active || 0}</div><div class="lbl">Active</div></div>
+    <div class="stat-card"><div class="num">${d.totalRatings}</div><div class="lbl">Rated Players</div></div>
+  </div>`;
+
+  // Registration chart
+  const regs = (d.recentReg || []).reverse();
+  if (regs.length) {
+    const max = Math.max(...regs.map(r => parseInt(r.count)), 1);
+    html += `<div class="chart-wrap"><h3>Registrations (last 30 days)</h3><div class="bar-chart">`;
+    regs.forEach(r => {
+      const h = Math.max(4, (parseInt(r.count) / max) * 100);
+      const day = r.day.slice(5);
+      html += `<div class="bar" style="height:${h}%"><span class="bar-tip">${day}: ${r.count}</span></div>`;
+    });
+    html += `</div><div class="bar-labels">`;
+    regs.forEach(r => html += `<span>${r.day.slice(8)}</span>`);
+    html += `</div></div>`;
+  }
+
+  document.getElementById('tab-dashboard').innerHTML = html;
+}
+
+/* ── Users ──────────────────────────────────── */
+
+async function loadUsers() {
+  const params = new URLSearchParams({ page: usersPage, limit: 25, sort: usersSort, order: usersOrder });
+  if (usersSearch) params.set('search', usersSearch);
+  const d = await apiFetch('/admin/users?' + params);
+
+  const cols = [
+    { key: 'username', label: 'User', tip: '' },
+    { key: 'email', label: 'Email', tip: '' },
+    { key: 'xp', label: 'Level', tip: 'Player level from XP (syncs on login)' },
+    { key: 'credits', label: '💰', tip: 'Credits balance (from pari bets & level-up bonuses)' },
+    { key: 'totalGames', label: 'G/W/L', tip: 'Games / Wins / Losses across all modes (bot, online, 2P)' },
+    { key: 'rating', label: 'Rating', tip: 'Glicko-2 rating from ranked server games' },
+    { key: 'createdAt', label: 'Registered', tip: '' },
+  ];
+
+  let html = `<div class="tbl-wrap">
+    <div class="tbl-bar">
+      <input id="user-search" placeholder="Search by username or email..." value="${esc(usersSearch)}" onkeydown="if(event.key==='Enter')searchUsers()">
+      <button onclick="searchUsers()">Search</button>
+    </div>
+    <table><thead><tr>`;
+
+  cols.forEach(c => {
+    const sorted = usersSort === c.key;
+    const cls = sorted ? (usersOrder === 'ASC' ? 'sorted asc' : 'sorted') : '';
+    const tip = c.tip ? ` title="${esc(c.tip)}"` : '';
+    html += `<th class="${cls}"${tip} onclick="sortUsers('${c.key}')">${c.label}</th>`;
+  });
+  html += `<th title="Ranked Wins/Losses/Draws (server-tracked games only)">Ranked W/L/D</th><th>Auth</th></tr></thead><tbody>`;
+
+  if (!d.items.length) {
+    html += `<tr><td colspan="9" style="text-align:center;color:var(--muted)">No users found</td></tr>`;
+  }
+
+  d.items.forEach(u => {
+    const date = new Date(u.createdAt).toLocaleDateString();
+    const auth = u.oauthProvider
+      ? `<span class="badge badge-oauth">${u.oauthProvider}</span>`
+      : `<span class="badge badge-local">local</span>`;
+    const lv = levelInfo(u.xp || 0);
+    html += `<tr onclick="openUser('${u.id}')" style="cursor:pointer">
+      <td><span class="online-dot ${u.isOnline ? 'on' : 'off'}"></span>${esc(u.username)}</td>
+      <td>${esc(u.email)}</td>
+      <td>Lv${lv.level} <span style="color:var(--muted);font-size:11px">(${u.xp||0} xp)</span></td>
+      <td>${u.credits || 0}</td>
+      <td>${u.totalGames||0}/${u.totalWins||0}/${(u.totalGames||0)-(u.totalWins||0)}</td>
+      <td>${u.rating ?? '—'}</td>
+      <td>${date}</td>
+      <td>${u.wins}/${u.losses}/${u.draws}</td>
+      <td>${auth}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+
+  // Pagination
+  html += `<div class="paging"><span>${d.total} users total</span><div class="pg-btns">`;
+  html += `<button ${d.page <= 1 ? 'disabled' : ''} onclick="goPage(${d.page - 1})">&laquo; Prev</button>`;
+  for (let i = 1; i <= d.pages; i++) {
+    if (d.pages > 7 && Math.abs(i - d.page) > 2 && i !== 1 && i !== d.pages) {
+      if (i === 2 || i === d.pages - 1) html += `<span style="padding:6px;color:var(--muted)">...</span>`;
+      continue;
+    }
+    html += `<button class="${i === d.page ? 'cur' : ''}" onclick="goPage(${i})">${i}</button>`;
+  }
+  html += `<button ${d.page >= d.pages ? 'disabled' : ''} onclick="goPage(${d.page + 1})">Next &raquo;</button>`;
+  html += `</div></div></div>`;
+
+  document.getElementById('tab-users').innerHTML = html;
+}
+
+function searchUsers() {
+  usersSearch = document.getElementById('user-search').value.trim();
+  usersPage = 1;
+  loadUsers();
+}
+
+function sortUsers(col) {
+  if (usersSort === col) usersOrder = usersOrder === 'DESC' ? 'ASC' : 'DESC';
+  else { usersSort = col; usersOrder = 'DESC'; }
+  loadUsers();
+}
+
+function goPage(p) { usersPage = p; loadUsers(); }
+
+/* ── User modal ────────────────────────────── */
+
+async function openUser(id) {
+  const u = await apiFetch('/admin/users/' + id);
+  const regDate = new Date(u.createdAt).toLocaleString();
+  const r = u.rating;
+
+  let html = `<h2>${esc(u.username)}</h2>
+    <div class="field"><label>ID</label><div class="val" style="font-size:12px;color:var(--muted)">${u.id}</div></div>
+    <div class="field"><label>Email</label><div class="val">${esc(u.email)}</div></div>
+    <div class="field"><label>Auth</label><div class="val">${u.oauthProvider ? `OAuth (${u.oauthProvider})` : 'Local (email + password)'} ${u.hasPassword ? '' : '— no password set'}</div></div>
+    <div class="field"><label>Registered</label><div class="val">${regDate}</div></div>
+    <div class="field"><label>Online</label><div class="val">${u.isOnline ? '<span style="color:var(--green)">Yes</span>' : 'No'}</div></div>`;
+
+  // Progression
+  const pr = u.progress || {};
+  const plv = levelInfo(pr.xp || 0);
+  html += `<div class="field"><label>Progression</label><div class="val">
+    Level <strong>${plv.level}</strong> · ${pr.xp||0} XP (${plv.xpInLevel}/${plv.xpForNext} to next) · 💰 ${pr.credits||0} credits
+  </div></div>
+  <div class="field"><label>Games (all modes)</label><div class="val">${pr.totalGames||0} played · ${pr.totalWins||0} wins · streak: ${pr.streak||0}</div></div>`;
+
+  // Ranked
+  html += `<div class="field"><label>Ranked Games</label><div class="val">${u.totalGames} (server-tracked)</div></div>`;
+
+  if (r) {
+    html += `<div class="field"><label>Rating</label><div class="val">${r.rating} (RD: ${r.rd})</div></div>
+      <div class="field"><label>Ranked Record</label><div class="val">${r.wins}W / ${r.losses}L / ${r.draws}D (${r.gamesPlayed} rated)</div></div>`;
+  } else {
+    html += `<div class="field"><label>Rating</label><div class="val" style="color:var(--muted)">Unrated</div></div>`;
+  }
+
+  html += `<div class="actions">
+    <button class="btn-close" onclick="closeModal()">Close</button>
+    <button class="btn-reset" onclick="resetPassword('${u.id}')">Reset Password</button>
+  </div>
+  <div id="reset-result"></div>`;
+
+  document.getElementById('user-modal-body').innerHTML = html;
+  document.getElementById('user-modal').classList.add('show');
+}
+
+function closeModal() { document.getElementById('user-modal').classList.remove('show'); }
+
+async function resetPassword(id) {
+  if (!confirm('Generate a new temporary password for this user?')) return;
+  const d = await apiFetch('/admin/users/' + id + '/reset-password', { method: 'POST', body: '{}' });
+  document.getElementById('reset-result').innerHTML = `<div class="reset-result">
+    Password reset for <strong>${esc(d.username)}</strong> (${esc(d.email)})<br>
+    Temporary password: <code>${esc(d.tempPassword)}</code><br>
+    <small>Send this to the user. They should change it after logging in.</small>
+  </div>`;
+}
+
+/* ── Bug Reports ───────────────────────────── */
+
+async function loadReports() {
+  const d = await apiFetch('/admin/bug-reports');
+  if (!d.reports.length) {
+    document.getElementById('tab-reports').innerHTML = `<div class="empty-state">No bug reports yet</div>`;
+    return;
+  }
+
+  let html = `<div style="margin-bottom:12px;color:var(--muted);font-size:13px">${d.total} report(s)</div>`;
+  d.reports.forEach(r => {
+    const ts = r.receivedAt ? new Date(r.receivedAt).toLocaleString() : r.filename;
+    const body = { ...r };
+    delete body.filename;
+    delete body.receivedAt;
+    html += `<div class="report-card">
+      <div class="report-hdr">
+        <span class="ts">${ts}</span>
+        <button onclick="deleteReport('${esc(r.filename)}')">Delete</button>
+      </div>
+      <pre>${esc(JSON.stringify(body, null, 2))}</pre>
+    </div>`;
+  });
+
+  document.getElementById('tab-reports').innerHTML = html;
+}
+
+async function deleteReport(filename) {
+  if (!confirm('Delete this bug report?')) return;
+  await apiFetch('/admin/bug-reports/' + encodeURIComponent(filename) + '/delete', { method: 'POST' });
+  loadReports();
+}
+
+/* ── Helpers ───────────────────────────────── */
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function levelInfo(totalXP) {
+  let lv = 1, needed = 0;
+  while (needed + lv * 100 <= totalXP) { needed += lv * 100; lv++; }
+  return { level: lv, xpInLevel: totalXP - needed, xpForNext: lv * 100 };
+}
+
+/* ── Auto-login ────────────────────────────── */
+if (adminKey) {
+  apiFetch('/admin/stats').then(() => {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadDashboard();
+  }).catch(() => { sessionStorage.removeItem('adminKey'); adminKey = ''; });
+}
+</script>
+</body>
+</html>

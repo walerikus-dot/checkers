@@ -1,0 +1,60 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(rtk *)",
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(tar *)",
+      "Bash(docker *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(curl *)",
+      "Bash(echo *)",
+      "Bash(sleep *)",
+      "Read(**)",
+      "Edit(**)",
+      "Write(**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-bash-check.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-snapshot.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-compact.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

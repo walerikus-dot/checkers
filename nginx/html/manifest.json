@@ -1,0 +1,14 @@
+{
+  "name": "Chashki — Checkers",
+  "short_name": "Chashki",
+  "description": "Play checkers online or vs AI — Russian, English & International rules",
+  "start_url": "/checkers-final.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0a10",
+  "theme_color": "#7c5cfc",
+  "icons": [
+    { "src": "/icon-192.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-512.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

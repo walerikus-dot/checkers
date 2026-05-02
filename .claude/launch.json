@@ -1,0 +1,31 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Checkers Game",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": ["--yes", "serve", "-p", "4000", "C:\\Users\\valer\\Documents\\Claude\\Projects\\Checkers"],
+      "port": 4000,
+      "env": {
+        "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
+      }
+    },
+    {
+      "name": "Backend (NestJS)",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "start:guest"],
+      "port": 3000,
+      "cwd": "backend",
+      "env": {
+        "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
+      }
+    },
+    {
+      "name": "Frontend (Next.js)",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3001,
+      "cwd": "frontend"
+    }
+  ]
+}

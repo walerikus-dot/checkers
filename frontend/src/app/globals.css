@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --board-light: #F0D9B5;
+  --board-dark: #B58863;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+.board-cell-light { background-color: var(--board-light); }
+.board-cell-dark { background-color: var(--board-dark); }

@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Разделение задач — Шашки</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;1,300&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #f5f0e8;
+    --bg2:      #ede8de;
+    --bg3:      #e5dfd3;
+    --surface:  #faf7f2;
+    --border:   #d6cfc3;
+    --border2:  #c8bfb0;
+    --ink:      #2a2520;
+    --ink2:     #4a433b;
+    --ink3:     #7a7168;
+    --ink4:     #a89f93;
+
+    --ai-bg:    #eef4ee;
+    --ai-bg2:   #e2efe2;
+    --ai-border:#b8d4b8;
+    --ai-accent:#2d5a3a;
+    --ai-head:  #1e3d28;
+
+    --hu-bg:    #f4eeea;
+    --hu-bg2:   #ecddd6;
+    --hu-border:#d4b8aa;
+    --hu-accent:#7a3a20;
+    --hu-head:  #4a2010;
+
+    --shadow: rgba(42,37,32,0.07);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .page {
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: 56px 40px;
+  }
+
+  @media (max-width: 640px) { .page { padding: 32px 18px; } }
+
+  /* ── HEADER ─────────────────────────────────── */
+  .doc-header {
+    border-bottom: 2px solid var(--border2);
+    padding-bottom: 36px;
+    margin-bottom: 44px;
+  }
+
+  .doc-label {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink4);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .doc-label::before {
+    content: '';
+    width: 20px;
+    height: 1px;
+    background: var(--border2);
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+  }
+
+  .header-sub {
+    font-size: 15px;
+    color: var(--ink3);
+    font-weight: 300;
+    max-width: 620px;
+  }
+
+  /* ── LEGEND ──────────────────────────────────── */
+  .legend {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    margin-bottom: 36px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13.5px;
+    color: var(--ink2);
+  }
+
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .dot-ai { background: var(--ai-accent); }
+  .dot-hu { background: var(--hu-accent); }
+
+  .legend-strong { font-weight: 600; }
+
+  /* ── TWO-COL SPLIT ───────────────────────────── */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+
+  @media (max-width: 700px) {
+    .split { grid-template-columns: 1fr; }
+    .split .col-ai { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+
+  .col-ai {
+    background: var(--ai-bg);
+    border-right: 1px solid var(--ai-border);
+  }
+
+  .col-hu {
+    background: var(--hu-bg);
+  }
+
+  .col-head {
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid;
+  }
+
+  .col-ai .col-head {
+    background: var(--ai-bg2);
+    border-color: var(--ai-border);
+  }
+
+  .col-hu .col-head {
+    background: var(--hu-bg2);
+    border-color: var(--hu-border);
+  }
+
+  .col-icon {
+    font-size: 18px;
+  }
+
+  .col-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .col-ai .col-title { color: var(--ai-head); }
+  .col-hu .col-title { color: var(--hu-head); }
+
+  .col-subtitle {
+    font-size: 12px;
+    color: var(--ink4);
+    font-weight: 300;
+    margin-left: auto;
+    font-family: 'Source Code Pro', monospace;
+    letter-spacing: 0.06em;
+  }
+
+  .col-body {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── TASK GROUP ──────────────────────────────── */
+  .task-group {}
+
+  .group-label {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid;
+  }
+
+  .col-ai .group-label {
+    color: var(--ai-accent);
+    border-color: var(--ai-border);
+  }
+
+  .col-hu .group-label {
+    color: var(--hu-accent);
+    border-color: var(--hu-border);
+  }
+
+  /* ── TASK ITEMS ──────────────────────────────── */
+  .tasks {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .tasks li {
+    font-size: 13.5px;
+    color: var(--ink2);
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    line-height: 1.5;
+  }
+
+  .tasks li .bullet {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
+
+  .col-ai .bullet { background: var(--ai-accent); opacity: 0.6; }
+  .col-hu .bullet { background: var(--hu-accent); opacity: 0.6; }
+
+  .tasks li strong { color: var(--ink); font-weight: 600; }
+
+  .tasks li .note {
+    font-size: 12px;
+    color: var(--ink4);
+    font-style: italic;
+    display: block;
+    margin-top: 1px;
+  }
+
+  /* ── SECTION DIVIDER ─────────────────────────── */
+  .sec-title {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink4);
+    margin-bottom: 12px;
+    margin-top: 40px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .sec-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── SUMMARY TABLE ───────────────────────────── */
+  .summary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .summary-head {
+    display: grid;
+    grid-template-columns: 1fr 1fr 80px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    gap: 16px;
+  }
+
+  .summary-head span {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink4);
+  }
+
+  .summary-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 80px;
+    padding: 10px 20px;
+    gap: 16px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    font-size: 13.5px;
+  }
+
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row:hover { background: var(--bg2); }
+
+  .summary-row .task-name { color: var(--ink2); font-weight: 500; }
+
+  .badge-ai {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 2px;
+    background: var(--ai-bg2);
+    border: 1px solid var(--ai-border);
+    color: var(--ai-accent);
+    font-weight: 500;
+  }
+
+  .badge-hu {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 2px;
+    background: var(--hu-bg2);
+    border: 1px solid var(--hu-border);
+    color: var(--hu-accent);
+    font-weight: 500;
+  }
+
+  .badge-both {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 2px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--ink3);
+    font-weight: 500;
+  }
+
+  .effort {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px;
+    color: var(--ink4);
+    letter-spacing: 0.06em;
+  }
+
+  /* ── CALLOUT ─────────────────────────────────── */
+  .callout {
+    border-left: 3px solid var(--border2);
+    padding: 13px 18px;
+    font-size: 13.5px;
+    color: var(--ink2);
+    margin-top: 20px;
+    line-height: 1.65;
+    display: flex;
+    gap: 10px;
+  }
+
+  .callout.green { border-color: var(--ai-accent); background: var(--ai-bg); }
+  .callout.brown { border-color: var(--hu-accent); background: var(--hu-bg); }
+  .callout.neutral { border-color: var(--border2); background: var(--surface); }
+
+  .callout strong { color: var(--ink); font-weight: 600; }
+  .callout-ico { flex-shrink: 0; }
+
+  /* ── FOOTER ──────────────────────────────────── */
+  footer {
+    margin-top: 56px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .footer-label {
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    color: var(--ink3);
+  }
+
+  .footer-code {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px;
+    color: var(--ink4);
+    letter-spacing: 0.08em;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="doc-header">
+    <div class="doc-label">Техническое задание — Шашки</div>
+    <h1>Разделение задач:<br>Claude Code и самостоятельная разработка</h1>
+    <p class="header-sub">Что может сгенерировать и реализовать Claude Code, а что требует ручной настройки инфраструктуры, сторонних сервисов или принятия архитектурных решений.</p>
+  </div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-dot dot-ai"></div>
+      <span><span class="legend-strong">Claude Code</span> — генерирует полный рабочий код, алгоритмы, компоненты</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot dot-hu"></div>
+      <span><span class="legend-strong">Самостоятельно</span> — требует ручной настройки, доступа к серверу или внешних сервисов</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="sec-title">01 · Игровая логика</div>
+
+  <div class="split">
+    <div class="col-ai">
+      <div class="col-head">
+        <span class="col-icon">🤖</span>
+        <span class="col-title">Claude Code</span>
+        <span class="col-subtitle">пишет код</span>
+      </div>
+      <div class="col-body">
+        <div class="task-group">
+          <div class="group-label">Ядро игры</div>
+          <ul class="tasks">
+            <li><div class="bullet"></div><div><strong>Движок русских шашек (8×8)</strong> — все правила, ходы, взятия, дамки<span class="note">полностью генерируется</span></div></li>
+            <li><div class="bullet"></div><div><strong>Международные шашки (10×10)</strong> — адаптация правил<span class="note">на основе ядра</span></div></li>
+            <li><div class="bullet"></div><div><strong>Английские шашки</strong> — отдельная конфигурация правил</div></li>
+            <li><div class="bullet"></div><div><strong>Валидация ходов на сервере</strong> — NestJS сервис</div></li>
+            <li><div class="bullet"></div><div><strong>Обнаружение конца партии</strong> — нет ходов, нет шашек, ничья</div></li>
+            <li><div class="bullet"></div><div><strong>Запись истории ходов</strong> — структура данных, сохранение</div></li>
+          </ul>
+        </div>
+        <div class="task-group">
+          <div class="group-label">Настройки партии</div>
+          <ul class="tasks">
+            <li><div class="bullet"></div><div><strong>Конфигурируемые правила</strong> — JSON-схема параметров лобби</div></li>
+            <li><div class="bullet"></div><div><strong>Логика таймера</strong> — блиц, контроль времени, просрочка</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-hu">
+      <div class="col-head">
+        <span class="col-icon">👤</span>
+        <span class="col-title">Самостоятельно</span>
+        <span class="col-subtitle">ручная работа</span>
+      </div>
+      <div class="col-body">
+        <div class="task-group">
+          <div class="group-label">Требует решения</div>
+          <ul class="tasks">
+            <li><div class="bullet"></div><div><strong>Выбор финального набора правил для MVP</strong> — решение принимаешь ты<span class="note">Claude Code реализует любой вариант</span></div></li>
+            <li><div class="bullet"></div><div><strong>Балансировка кастомных правил</strong> — игровой дизайн, тестирование</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="sec-title">02 · AI-противник</div>
+
+  <div class="split">
+    <div class="col-ai">
+      <div class="col-head">
+        <span class="col-icon">🤖</span>
+        <span class="col-title">Claude Code</span>
+        <span class="col-subtitle">пишет код</span>
+      </div>
+      <div class="col-body">
+        <div class="task-group">
+          <div class="group-label">Все уровни AI</div>
+          <ul class="tasks">
+            <li><div class="bullet"></div><div><strong>Лёгкий</strong> — случайные ходы с фильтрацией допустимых</div></li>
+            <li><div class="bullet"></div><div><strong>Средний</strong> — полный Minimax с эвристической оценкой позиции</div></li>
+            <li><div class="bullet"></div><div><strong>Сложный</strong> — Minimax + Alpha-Beta pruning, глубина 4–6</div></li>
+            <li><div class="bullet"></div><div><strong>Супер сложный</strong> — transposition table, итеративное углубление</div></li>
+            <li><div class="bullet"></div><div><strong>Эвристические функции</strong> — контроль центра, дамки, мобильность</div></li>
+            <li><div class="bullet"></div><div><strong>Opening book</strong> — таблица дебютов в JSON</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-hu">
+      <div class="col-head">
+        <span class="col-icon">👤</span>
+        <span class="col-title">Самостоятельно</span>
+        <span class="col-subtitle">ручная работа</span>
+      </div>
+      <div class="col-body">
+        <div class="task-group">
+          <div class="group-label">Тонкая настройка</div>
+          <ul class="tasks">
+            <li><div class="bullet"></div><div><strong>Ручное тестирование и настройка сложности</strong> — игровой баланс<span class="note">проверяется живой игрой</span></div></li>
+            <li><div class="bullet"></div><div><strong>Расширение opening book</strong> — добавление реальных дебютов шашечной теории</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="sec-title">03 · Backend и архитектура</div>
+
+  <div class="split">
+    <div class="col-ai">
+      <div class="col-head">
+        <span class="col-icon">🤖</span>
+        <span class="col-title">Claude Code</span>
+        <span class="col-subtitle">пишет код</span>
+      </div>
+      <div class="col-body">
+        <div class="task-group">
+          <div class="group-label">NestJS приложение</div>
+          <ul class="tasks">
+            <li><div class="bullet"></div><div><strong>Все модули, контроллеры, сервисы</strong> — структура NestJS</div></li>
+            <li><div class="bullet"></div><div><strong>WebSocket Gateway</strong> — turn-based игровой цикл</div></li>
+            <li><div class="bullet"></div><div><strong>REST API</strong> — все эндпоинты (аккаунты, игры, история)</div></li>
+            <li><div class="bullet"></div><div><strong>JWT аутентификация</strong> — guards, стратегии Passport</div></li>
+            <li><div class="bullet"></div><div><strong>OAuth интеграция</strong> — Google OAuth2 flow</div></li>
+            <li><div class="bullet"></div><div><strong>Миграции базы данных</strong> — TypeORM / Prisma схемы</div></li>
+            <li><div class="bullet"></div><div><strong>Glicko-2 алгоритм</strong> — полная реализация расчёта рейтинга</div></li>
+            <li><div class="bullet"></div><div><strong>Matchmaking логика</strong> — очереди, фильтрация, тайм-аут</div></li>
+            <li><div class="bullet"></div><div><strong>Турнирная сетка</strong> — алгоритмы Single/Double Elimination, Round Robin</div></li>
+            <li><div class="bullet"></div><div><strong>Rate limiting</strong> — middleware конфигурация</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-hu">
+      <div class="col-head">
+        <span class="col-icon">👤</span>
+        <span class="col-title">Самостоятельно</span>
+        <span class="col-subtitle">ручная работа</span>
+      </div>
+      <div class="col-body">
+        <div class="task-group">
+          <div class="group-label">Инфраструктура</div>
+          <ul class="tasks">
+            <li><div class="bullet"></div><div><strong>Установка и настройка PostgreSQL</strong> на сервере Ubuntu<span class="note">создание пользователей, прав доступа</span></div></li>
+            <li><div class="bullet"></div><div><strong>Установка и настройка Redis</strong> — конфигурация persistence, памяти</div></li>
+            <li><div class="bullet"></div><div><strong>Настройка переменных окружения</strong> — .env для prod/dev</div></li>
+            <li><div class="bullet"></div><div><strong>Регистрация Google OAuth приложения</strong> — Google Cloud Console, получение ключей</div></li>
+            <li><div class="bullet"></div><div><strong>Управление секретами</strong> — JWT secret, DB пароли</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="sec-title">04 · Frontend и UI</div>
+
+  <div class="split">
+    <div class="col-ai">
+      <div class="col-head">
+        <span class="col-icon">🤖</span>
+        <span class="col-title">Claude Code</span>
+        <span class="col-subtitle">пишет код</span>
+      </div>
+      <div class="col-body">
+        <div class="task-group">
+          <div class="group-label">React / Next.js</div>
+          <ul class="tasks">
+            <li><div class="bullet"></div><div><strong>Компонент шахматной доски</strong> — Canvas или DOM, все темы</div></li>
+            <li><div class="bullet"></div><div><strong>Анимации ходов и взятий</strong> — CSS / JS анимации</div></li>
+            <li><div class="bullet"></div><div><strong>Все экраны</strong> — лобби, игра, профиль, история, турнир</div></li>
+            <li><div class="bullet"></div><div><strong>WebSocket клиент</strong> — подключение, события, состояние</div></li>
+            <li><div class="bullet"></div><div><strong>Адаптивный дизайн</strong> — mobile-first вёрстка</div></li>
+            <li><div class="bullet"></div><div><strong>PWA конфигурация</strong> — manifest, Service Worker, offline</div></li>
+            <li><div class="bullet"></div><div><strong>Чат в игре</strong> — UI компонент + WS интеграция</div></li>
+            <li><div class="bullet"></div><div><strong>Таймер и счётчики</strong> — визуальные компоненты</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-hu">
+      <div class="col-head">
+        <span class="col-icon">👤</span>
+        <span class="col-title">Самостоятельно</span>
+        <span class="col-subtitle">ручная работа</span>
+      </div>
+      <div class="col-body">
+        <div class="task-group">
+          <div class="group-label">Дизайн-решения</div>
+          <ul class="tasks">
+            <li><div class="bullet"></div><div><strong>Финальный выбор цветовой схемы и тем</strong> — согласование визуала<span class="note">Claude Code реализует любой вариант</span></div></li>
+            <li><div class="bullet"></div><div><strong>Графические ассеты</strong> — иконки шашек, фигуры (если нужны SVG/изображения)</div></li>
+            <li><div class="bullet"></div><div><strong>Звуковые эффекты</strong> — подбор и интеграция аудио-файлов</div></li>
+            <li><div class="bullet"></div><div><strong>UX-тестирование</strong> — живые пользователи, фидбек</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="sec-title">05 · Деплой и инфраструктура</div>
+
+  <div class="split">
+    <div class="col-ai">
+      <div class="col-head">
+        <span class="col-icon">🤖</span>
+        <span class="col-title">Claude Code</span>
+        <span class="col-subtitle">пишет код</span>
+      </div>
+      <div class="col-body">
+        <div class="task-group">
+          <div class="group-label">Конфигурационные файлы</div>
+          <ul class="tasks">
+            <li><div class="bullet"></div><div><strong>docker-compose.yml</strong> — все сервисы (backend, db, redis, nginx)</div></li>
+            <li><div class="bullet"></div><div><strong>Dockerfile</strong> для backend и frontend</div></li>
+            <li><div class="bullet"></div><div><strong>Nginx конфиг</strong> — reverse proxy, SSL, gzip, WS upgrade</div></li>
+            <li><div class="bullet"></div><div><strong>GitHub Actions CI/CD</strong> — пайплайн сборки и деплоя</div></li>
+            <li><div class="bullet"></div><div><strong>Скрипты деплоя</strong> — bash-скрипты первичной установки</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-hu">
+      <div class="col-head">
+        <span class="col-icon">👤</span>
+        <span class="col-title">Самостоятельно</span>
+        <span class="col-subtitle">ручная работа</span>
+      </div>
+      <div class="col-body">
+        <div class="task-group">
+          <div class="group-label">Сервер и DNS</div>
+          <ul class="tasks">
+            <li><div class="bullet"></div><div><strong>Аренда домена</strong> — регистратор, DNS-записи<span class="note">A-запись, CNAME</span></div></li>
+            <li><div class="bullet"></div><div><strong>Запуск команд на сервере</strong> — SSH, установка Docker, первый деплой</div></li>
+            <li><div class="bullet"></div><div><strong>Получение SSL сертификата</strong> — certbot + Let's Encrypt на сервере</div></li>
+            <li><div class="bullet"></div><div><strong>Firewall</strong> — открытие портов 80, 443, настройка ufw</div></li>
+            <li><div class="bullet"></div><div><strong>Мониторинг и бэкапы</strong> — настройка cron для бэкапов PostgreSQL</div></li>
+            <li><div class="bullet"></div><div><strong>GitHub Actions secrets</strong> — добавление SSH ключей, токенов</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="sec-title">06 · Тестирование и запуск</div>
+
+  <div class="split">
+    <div class="col-ai">
+      <div class="col-head">
+        <span class="col-icon">🤖</span>
+        <span class="col-title">Claude Code</span>
+        <span class="col-subtitle">пишет код</span>
+      </div>
+      <div class="col-body">
+        <div class="task-group">
+          <div class="group-label">Автотесты</div>
+          <ul class="tasks">
+            <li><div class="bullet"></div><div><strong>Unit-тесты игрового движка</strong> — Jest, все правила</div></li>
+            <li><div class="bullet"></div><div><strong>Unit-тесты Glicko-2</strong> — корректность расчётов</div></li>
+            <li><div class="bullet"></div><div><strong>E2E тесты API</strong> — Supertest, все эндпоинты</div></li>
+            <li><div class="bullet"></div><div><strong>Тесты WebSocket</strong> — сценарии игровых событий</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-hu">
+      <div class="col-head">
+        <span class="col-icon">👤</span>
+        <span class="col-title">Самостоятельно</span>
+        <span class="col-subtitle">ручная работа</span>
+      </div>
+      <div class="col-body">
+        <div class="task-group">
+          <div class="group-label">Ручное тестирование</div>
+          <ul class="tasks">
+            <li><div class="bullet"></div><div><strong>Живая игра и проверка правил</strong> — финальная верификация</div></li>
+            <li><div class="bullet"></div><div><strong>Тестирование на реальных устройствах</strong> — iOS, Android, разные браузеры</div></li>
+            <li><div class="bullet"></div><div><strong>Нагрузочное тестирование</strong> — симуляция множества одновременных игр</div></li>
+            <li><div class="bullet"></div><div><strong>Бета-тест с реальными игроками</strong></div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="sec-title">Итоговая сводка по разделам</div>
+
+  <div class="summary">
+    <div class="summary-head">
+      <span>Область</span>
+      <span>Ответственность</span>
+      <span>Усилие</span>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">Игровой движок (все правила)</div>
+      <div><span class="badge-ai">Claude Code</span></div>
+      <div class="effort">авто</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">AI-противник (все уровни)</div>
+      <div><span class="badge-ai">Claude Code</span></div>
+      <div class="effort">авто</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">NestJS backend, API, WS</div>
+      <div><span class="badge-ai">Claude Code</span></div>
+      <div class="effort">авто</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">JWT + OAuth Google</div>
+      <div><span class="badge-both">Оба</span></div>
+      <div class="effort">ключи вручную</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">Glicko-2 алгоритм</div>
+      <div><span class="badge-ai">Claude Code</span></div>
+      <div class="effort">авто</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">Matchmaking и турниры</div>
+      <div><span class="badge-ai">Claude Code</span></div>
+      <div class="effort">авто</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">React / Next.js фронтенд</div>
+      <div><span class="badge-ai">Claude Code</span></div>
+      <div class="effort">авто</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">Docker, Nginx, CI/CD конфиги</div>
+      <div><span class="badge-ai">Claude Code</span></div>
+      <div class="effort">авто</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">Установка Docker и запуск на сервере</div>
+      <div><span class="badge-hu">Самостоятельно</span></div>
+      <div class="effort">SSH + команды</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">Домен и DNS</div>
+      <div><span class="badge-hu">Самостоятельно</span></div>
+      <div class="effort">регистратор</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">SSL сертификат (certbot)</div>
+      <div><span class="badge-hu">Самостоятельно</span></div>
+      <div class="effort">на сервере</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">Настройка PostgreSQL / Redis на сервере</div>
+      <div><span class="badge-hu">Самостоятельно</span></div>
+      <div class="effort">или через Docker</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">Графические ассеты, звуки</div>
+      <div><span class="badge-hu">Самостоятельно</span></div>
+      <div class="effort">подбор файлов</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">Unit + E2E тесты</div>
+      <div><span class="badge-ai">Claude Code</span></div>
+      <div class="effort">авто</div>
+    </div>
+    <div class="summary-row">
+      <div class="task-name">Тестирование на устройствах / балансировка</div>
+      <div><span class="badge-hu">Самостоятельно</span></div>
+      <div class="effort">живая проверка</div>
+    </div>
+  </div>
+
+  <div class="callout green" style="margin-top: 20px;">
+    <span class="callout-ico">→</span>
+    <div><strong>Вывод по Claude Code:</strong> Весь программный код — игровой движок, AI, backend, frontend, конфиги Docker/Nginx, тесты, алгоритм Glicko-2 — Claude Code пишет полностью. Это основная часть проекта (~85% работы).</div>
+  </div>
+
+  <div class="callout brown">
+    <span class="callout-ico">→</span>
+    <div><strong>Вывод по ручной работе:</strong> Самостоятельно нужно выполнить только то, что требует физического доступа к серверу (SSH, DNS, certbot) или регистрации во внешних сервисах (Google Cloud Console для OAuth, регистратор домена). Это разовые операции.</div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-label">Разделение задач — Онлайн-игра в шашки</div>
+    <div class="footer-code">Claude Code · Инфраструктура · v1.0</div>
+  </footer>
+
+</div>
+</body>
+</html>

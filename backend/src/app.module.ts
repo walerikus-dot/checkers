@@ -13,6 +13,7 @@ import { MatchmakingModule } from './matchmaking/matchmaking.module';
 import { GuestModule } from './guest/guest.module';
 import { BugReportsModule } from './bug-reports/bug-reports.module';
 import { AdminModule } from './admin/admin.module';
+import { BetsModule } from './bets/bets.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { AdminModule } from './admin/admin.module';
     GuestModule,
     BugReportsModule,
     AdminModule,
+    BetsModule,
   ],
 })
 export class AppModule {}

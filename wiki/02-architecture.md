@@ -262,6 +262,61 @@ Login ──► access token (15m) + refresh token (7d)
 
 ---
 
+## Bet Escrow System
+
+Pari-mutuel bet games are protected against client tampering by a server-driven escrow flow. The relay (`GuestGateway`) calls `BetsService` directly — no trust is placed on client-supplied amounts or balances.
+
+### State machine (`bets.status` enum)
+
+```
+              ┌─────────────────────────────────────────┐
+              ▼                                         │
+        ESCROWED ──── opponent joins, game ends ────► SETTLED
+        ▲   │  │
+        │   │  └── timer/cron after 10 min ──► EXPIRED  (refund)
+        │   │
+        │   └── host abandons before guest joins ──► REFUNDED
+        │
+   POST /bets/escrow                                 ┌──────┐
+   (atomic deduction                                 │FROZEN│ ◄── disagreement / settle failure
+    + Bet row insert)                                └───┬──┘
+                                                         │
+                                              admin POST /admin/bets/:id/refund
+                                                         ▼
+                                                     REFUNDED
+```
+
+### Trust boundary
+
+| Component | Trusted to mutate `User.credits`? |
+|---|---|
+| `BetsService.escrow / settle / refund / freeze / expireStale` | **Yes** (single audited path, pessimistic-locked transactions) |
+| `GuestGateway` | Indirect — via `BetsService` only |
+| `PUT /api/users/:id/progress` (client sync) | **No** — `credits` field stripped from accepted body |
+| Client `prog.credits` | Display mirror only — server value wins on every conflict (Phase 5 source-of-truth flip) |
+
+### Safeguards
+
+- **JWT required** for `room:create` with `bet>0` and for joining a bet room. Verified via `socket.handshake.auth.token` (signature checked against `JWT_ACCESS_SECRET`). Anonymous play still works for free games.
+- **Pessimistic write locks** on `User` rows during escrow + settle prevent double-spend race conditions.
+- **Idempotent settlement** — re-settling the same pair with the same result returns existing rows; with a different result throws `Conflict`.
+- **Per-room expiry timer** in the relay (10 min) refunds unmatched stakes proactively + emits `room:expired` so the host's UI clears.
+- **Cron safety net** (`@Cron(EVERY_5_MINUTES)`) sweeps any DB orphan bets the relay forgot about (server restart, cleanup gap).
+- **Admin freeze + refund** for settlement disagreements via `POST /api/admin/bets/:id/refund`.
+
+### Lifecycle of a bet game
+
+1. Host (logged in) creates bet room → relay verifies JWT → `BetsService.escrow(hostId, amount, roomId)` deducts credits and creates a Bet row → relay stores `hostBetId` on the room → emits `room:created { hostBetId, expiresInMs }`. Per-room expiry timer is scheduled.
+2. Guest (logged in) joins → relay verifies JWT → `BetsService.escrow(guestId, amount, roomId)` for guest → expiry timer cleared → game starts.
+3. Game ends:
+   - Normal `game:over` → `BetsService.settle(host, guest, hostResult)` → winner +2×amount, loser +0.
+   - `game:draw-accept` → `settle(... 'draw')` → both refunded their stake.
+   - Mid-game `room:leave` or disconnect-grace expiry → leaver loses, opponent wins pot.
+   - Settle conflict (e.g. inconsistent re-settle) → falls through to `freeze()` → admin review.
+4. Replay (`game:new` after settle): the relay clears `room.bet`, so the next round is a free game. (Re-escrow on replay is a future enhancement.)
+
+---
+
 ## Rating System
 
 Player ratings use the **Glicko2** algorithm. Glicko2 improves on Elo by tracking rating deviation (uncertainty) and volatility (consistency of performance).

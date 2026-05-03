@@ -57,7 +57,27 @@ export class UsersService {
     return bcrypt.compare(password, user.passwordHash);
   }
 
-  async getLeaderboard(limit = 50, offset = 0): Promise<User[]> {
-    return this.repo.find({ relations: ['rating'], order: { rating: { rating: 'DESC' } }, take: limit, skip: offset });
+  async getLeaderboard(limit = 50, offset = 0, sortBy: 'rating' | 'winrate' | 'wins' | 'games' = 'rating'): Promise<User[]> {
+    // Include only users with a Rating row. Users who haven't played a ranked game
+    // are excluded entirely, regardless of sort mode.
+    const qb = this.repo.createQueryBuilder('u').innerJoinAndSelect('u.rating', 'r');
+    switch (sortBy) {
+      case 'wins':
+        qb.orderBy('r.wins', 'DESC').addOrderBy('r.rating', 'DESC');
+        break;
+      case 'games':
+        qb.orderBy('r.gamesPlayed', 'DESC').addOrderBy('r.rating', 'DESC');
+        break;
+      case 'winrate':
+        // Min 5 games to qualify (avoids trivial 1-win-1-game perfect records).
+        qb.andWhere('r.gamesPlayed >= 5')
+          .orderBy('(CAST(r.wins AS FLOAT) / NULLIF(r.gamesPlayed, 0))', 'DESC')
+          .addOrderBy('r.gamesPlayed', 'DESC');
+        break;
+      case 'rating':
+      default:
+        qb.orderBy('r.rating', 'DESC').addOrderBy('r.gamesPlayed', 'DESC');
+    }
+    return qb.take(limit).skip(offset).getMany();
   }
 }

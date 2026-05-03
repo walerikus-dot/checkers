@@ -79,7 +79,7 @@ Single self-contained admin SPA gated by `X-Admin-Key`. Lives at `https://chashk
 
 - Create form: name, format (SE / RR / **DE**), rules (RU / EN / INT), maxPlayers, optional `startsAt` datetime → `POST /api/tournaments/admin-create`
 - Filter dropdown: all / pending / active / completed / cancelled
-- Per-row actions: **▶ Start** (pending only), **✕ Cancel** (pending or active), **👁 View** (active or completed)
+- Per-row actions: **▶ Start** (pending only), **✕ Cancel** (pending or active), **👁 View** (active or completed), **🗑 Delete** (any row — backend rejects if any match has a recorded winner)
 - Bracket modal:
   - SE → round-by-round match list, winner highlight
   - RR → standings table (W/D/L/Pts) + match list
@@ -249,6 +249,62 @@ A board-footprint inline panel that occupies the same slot as `#mob-play-inline`
 **Win / lose result panel (`#game-result-inline`):**
 - After `showWin()`, the inline panel fades in with: emoji, title, **🏆 Winner / 💀 Loser** lines (separate rows), sub message, and a **Play again** button.
 - Top-right always carries minimize ▾ and close ✕ (maximize ▴ replaces ▾ when minimized). Minimized state hides title/emoji/sub/meta/actions and floats as a small chip over the board.
+
+---
+
+### Combined Player Panel (`#combined-panel`)
+
+Single horizontal strip below the board carrying both players' pieces / capture counts and the central turn-timer ring. Visible on **both mobile and desktop** (was mobile-only earlier).
+
+```
+[ ⏱  PCS  CAP ]    [ TIMER ]    [ CAP  PCS  ⏱ ]
+   Black half         center        White half
+```
+
+**Side-swap interactions** — a deliberate gesture is required so a stray tap doesn't flip sides:
+- **Drag** an avatar circle (`cp-swc`) past the panel midpoint → release → both avatars glide to opposite ends, `.swapped` is applied, layout flips. The other avatar mirrors with negated `translateX` while you drag, so they look like they trade places.
+- **Long-press** an avatar (1.2 s) → the avatar's outer ring fills clockwise (ivory on Black, accent on White). On completion both avatars fade out (200 ms), `.swapped` flips silently, both fade in (200 ms).
+- **Keyboard hold** — Tab to focus an avatar, hold Space or Enter for 1.2 s → same as long-press.
+- **Mid-game guard** — `_canSwapNow()` returns `false` during a live AI game (history not empty + game not over) and shows an info-bar warn-tip "⚠️ You can't swap sides during the game".
+
+`.cp-half.cp-drag-active` is added to both halves while a drag is in progress so the avatars escape the half's `overflow:hidden` and stack above the central timer (z-index lift). `.swapped` flips flex `order` and adds `flex-direction:row-reverse` so the avatars end up at the **outer edges** of the panel (not pressed against the timer).
+
+### Info Bar Tip Rotator
+
+Every ~30 s a random tip types into the status bar from a 4-tip pool: `Tap the timer to set a turn countdown`, `Hold an avatar to swap sides`, `Drag halves to swap colors`, `Tap nickname to change it`. Skips while a noteworthy status is active (`_realStatusActive()` — capture required, AI thinking, game over, multi-capture chain, online disconnect).
+
+`renderStatus()` was pruned: "Your turn" / "Opponent's turn" no longer fill the bar (the active swatch + timer convey it). Only mandatory captures, multi-capture continuation, AI-thinking, the move-0 welcome greeting, and the colored game-over message stay. Game-over uses HTML so the headline is **green** (`#4ade80` "🏆 You win!"), the loser-tag is **red** (`#f87171` "💀 Expert bot lost"), draws are **amber**, and trailing XP / level-up info is muted / accent.
+
+### Random Guest Name
+
+On first launch (no `localStorage.op_saved_name`, not logged in), a fun adjective.animal name is generated (~80×80 ≈ 5 800 combos: `brave.goose`, `sly.scorpion`, `silver.fox`, …). Stored in localStorage and applied to the hidden `#op-name` input.
+
+The `#mob-prog-nick` (and desktop equivalent) on the Progress panel is clickable for guests:
+- **Click** → re-roll random name.
+- After click, a tiny ✏️ pen appears next to the nick for 4 s. Click it → inline text input where you can type a custom name; Enter / blur saves, Escape cancels.
+- Logged-in users skip both — they edit via the Profile panel.
+
+### Top Action Bar (Mobile)
+
+`#mob-action-bar` at the very top of the layout: `[⚡ Play] [🎮 Lobby] [🏆] [☰]`.
+- Play and Lobby are full `mab-btn` buttons (`flex:1`).
+- Trophy and hamburger get moved into the action bar by `_mobReplaceFloatingButtons()` on viewport ≤820 px (CSS overrides `position:static`); on desktop they're restored to `<body>` with their original `position:fixed`.
+- Hamburger is intentionally **not** moved on mobile — its menu's overlay (`z-index:300`) covers the action bar's stacking context (`.app` has `z-index:1`), so the close-X click would be trapped. Hamburger stays floating top-right; action bar gets `padding-right:50px` to clear it.
+
+### Bottom Action Bar (Mobile)
+
+`#mob-bottom-bar` at the bottom of the layout: `[↺ New] [🤝 Draw] [⟵ Undo]`. Mobile-only (`@media(min-width:821px) { #mob-bottom-bar { display:none !important } }`). Each button is `flex:1`; bar is centered with `margin:0 auto` and width matches `var(--board-sz) + 2*var(--frame)`. NEW / DRAW / UNDO are all no-ops while any inline panel covers the board (`_anyInlinePanelOpen()` guard).
+
+### Tap-to-start vs AI
+
+When the player picks Black, the AI moves first. The old dark "▶ Start" overlay is **gone** — the board renders fully visible from the start, an info-bar tip says "👆 Tap the board to start", and any tap on a board cell calls `triggerAiStart()` to fire the AI's opening move. Same flow on page reload if `playerColor` was persisted as Black.
+
+### Tournaments / Leaderboard Panel (`#trn-overlay`)
+
+Now an **inline board-footprint panel** (was a fullscreen modal). Auto-relocated into `.board-wrapper` on first open. Header: two clickable tabs **🏆 Tournaments** / **🏅 Leaderboard** + ↻ refresh + ✕ close. The **🏆 FAB** in the action bar acts as a toggle (`toggleTrnPanel`); a second click closes the panel.
+
+- Tournament view: filter chips `All / Open / Live / Done`. Refresh calls `loadTournaments()`. Sign-in prompts route through `showInfoHint` (info bar), not toasts.
+- Leaderboard view: sort chips `Rating / Winrate / Wins / Games`. The chip row is hidden when Leaderboard isn't active. Each row's primary-stat column shows the active-sort metric, secondary column shows the next-most-relevant value. Backend excludes users with no Rating row and projects only safe public fields.
 
 ---
 

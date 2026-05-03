@@ -320,6 +320,52 @@ Returns a Glicko-2 ranked list of players. Includes rating, rating deviation, an
 
 ---
 
+### Bets Endpoints
+
+All bet endpoints require JWT (`Authorization: Bearer <token>`). The bet system is the **only** server-side path that mutates `User.credits` — direct credit pushes via `PUT /users/:id/progress` are ignored (server-authoritative since Phase 5 of the bet-escrow upgrade).
+
+| State | Meaning |
+|---|---|
+| `escrowed` | Stake is deducted from user, held pending settlement |
+| `settled` | Game resolved; pot transferred (winner +2×amount, loser +0, draw refunds) |
+| `refunded` | User-initiated or admin refund (no opponent matched, frozen-pot release) |
+| `frozen` | Disagreement / settle failure → held for admin review |
+| `expired` | Auto-refunded by relay timer or cron after `ESCROW_TTL_MS` (10 min) |
+
+#### `POST /api/bets/escrow`
+
+Atomically deducts `amount` credits and creates a Bet row in `escrowed` state. Used directly by the relay (server-side); also exposed for testing/admin tooling.
+
+**Request:** `{ amount: number, roomId?: string }` — amount integer in `[1, 10000]`
+**Response:** `{ id, amount, status: "escrowed", expiresAt }`
+**Errors:** `400` insufficient credits / out-of-range; `404` user; `403` someone else's user.
+
+#### `POST /api/bets/:betId/refund`
+
+User-initiated refund. Allowed only when the bet has no `opponentBetId` (no game started) and is not already settled/frozen.
+
+#### `GET /api/bets/:betId`
+
+Returns the full bet row (owner only).
+
+#### `GET /api/bets`
+
+Lists the requester's most recent bets (latest first, capped at 200).
+
+#### `GET /api/admin/bets?status=&q=&limit=` *(admin)*
+
+Lists all bets with optional status filter (`escrowed|settled|refunded|frozen|expired`) and substring search across username + roomId. Returns rows enriched with `username`.
+
+#### `GET /api/admin/bets/stats` *(admin)*
+
+Returns counts per status: `{ escrowed, settled, refunded, frozen, expired, total }`.
+
+#### `POST /api/admin/bets/:id/refund` *(admin)*
+
+Admin-release a frozen bet (e.g. settlement disagreement). Refunds the user's stake atomically through `BetsService`.
+
+---
+
 ### Tournaments Endpoints
 
 All `GET` tournament endpoints are **public** (no auth required). `POST /join` and `DELETE /join` require JWT. Admin actions require `X-Admin-Key` header.
@@ -406,7 +452,13 @@ Start a tournament and generate the bracket. Requires `X-Admin-Key` header. Need
 
 #### `POST /api/tournaments/:id/cancel` _(Admin)_
 
-Cancel a pending or active tournament. Requires `X-Admin-Key`.
+Cancel a pending or active tournament. Requires `X-Admin-Key`. Sets status to `cancelled` but keeps the tournament row.
+
+---
+
+#### `DELETE /api/tournaments/:id` _(Admin)_
+
+Permanently delete an empty tournament along with its matches and participants. Requires `X-Admin-Key`. Allowed only when no match has a recorded `winnerId` — returns `400 "Cannot delete a tournament with played games. Cancel it instead."` if any game has produced a result. Cascades: `tournament_matches` → `tournament_participants` → `tournaments` row.
 
 ---
 
@@ -493,9 +545,9 @@ This namespace handles local multiplayer via rooms. No authentication is require
 
 | Event | Payload | Description |
 |-------|---------|-------------|
-| `room:create` | `{ name, rules, code?, turnTime?, userId? }` | Create a new room. `rules`: `'russian'`/`'english'`/`'international'`. `code` sets an optional password. `turnTime`: `30` or `60` (seconds per turn); omit or `undefined` for no timer. `userId` is the authenticated user's ID (optional — included when the client is logged in). |
+| `room:create` | `{ name, rules, code?, turnTime?, userId?, bet?, allowBot? }` | Create a new room. `rules`: `'russian'`/`'english'`/`'international'`. `code` sets an optional password. `turnTime`: `30` or `60` (seconds per turn); omit or `undefined` for no timer. `userId` is the authenticated user's ID (optional — included when the client is logged in). **`bet`** sets a stake in credits — when `>0` the socket MUST carry a valid JWT in `handshake.auth.token`, the host's stake is escrowed server-side, and bots are disabled for this room. |
 | `room:list` | _(none)_ | Request the current list of available rooms |
-| `room:join` | `{ roomId, name, code?, userId? }` | Join a room by ID. `code` required if the room is locked. `userId` included when logged in. |
+| `room:join` | `{ roomId, name, code?, userId? }` | Join a room by ID. `code` required if the room is locked. `userId` included when logged in. **For bet rooms** the socket MUST carry a valid JWT — the guest's stake is escrowed server-side before they're seated. Self-join from another tab is blocked. |
 | `room:rejoin` | `{ roomId, name }` | Re-attach to a room after a dropped connection (during the 30 s grace window). |
 | `game:over` | `{ roomId, winner }` | Emitted by the winning client when a normal game conclusion is detected (e.g. no moves left). Triggers the relay to compute and emit `game:result` to both players. |
 | `game:move` | `{ roomId, fr, fc, tr, tc, capCell }` | Send a move using grid coordinates. Relayed to the opponent. |
@@ -511,9 +563,10 @@ This namespace handles local multiplayer via rooms. No authentication is require
 
 | Event | Payload | Description |
 |-------|---------|-------------|
-| `room:list` | `[{ id, hostName, guestName?, rules, turnTime?, locked, status, createdAt }]` | Current snapshot of all available rooms. `turnTime` is present only when the host set a timer. |
-| `room:created` | `{ roomId, color: 'white' }` | Sent to the host after creating a room. Host plays as white. |
-| `room:joined` | `{ roomId, color: 'black', opponentName, opponentId?, rules, turnTime? }` | Sent to the guest after successfully joining. Guest plays as black. `opponentId` is the host's userId if they were logged in. |
+| `room:list` | `[{ id, hostName, guestName?, rules, turnTime?, locked, status, createdAt, bet }]` | Current snapshot of all available rooms. `turnTime` is present only when the host set a timer. **`bet`** is the per-room stake in credits (0 for free games). |
+| `room:created` | `{ roomId, color: 'white', bet, hostBetId?, expiresInMs? }` | Sent to the host after creating a room. Host plays as white. For bet rooms, includes the server-issued `hostBetId` and `expiresInMs` countdown to the auto-refund deadline (10 min). |
+| `room:joined` | `{ roomId, color: 'black', opponentName, opponentId?, rules, turnTime?, bet?, guestBetId? }` | Sent to the guest after successfully joining. Guest plays as black. `opponentId` is the host's userId if they were logged in. For bet rooms includes `guestBetId`. |
+| `room:expired` | `{ roomId, reason: 'no_opponent', refundedAmount }` | Sent to the host when their unmatched bet room expires (TTL=10 min). The escrowed stake has already been refunded. The room is removed. |
 | `room:opponent-joined` | `{ opponentName, opponentId?, color: 'white', rules, turnTime? }` | Sent to the host when a guest joins their room. `opponentId` is the guest's userId if they were logged in. |
 | `room:reconnected` | `{ color, opponentName, rules, turnTime? }` | Sent to the reconnecting player — confirms their slot is restored. |
 | `room:opponent-reconnected` | `{ opponentName }` | Sent to the waiting player when their opponent reconnects. |
@@ -521,7 +574,7 @@ This namespace handles local multiplayer via rooms. No authentication is require
 | `room:opponent-left-win` | `{ opponentId, rules, roomId }` | Sent when the opponent explicitly leaves or the reconnect grace window expires. The receiver is the winner. Payload includes the opponent's userId and the room's ruleset so the client can call `/api/games/guest-result`. |
 | `room:host-left` | _(none)_ | Sent to the guest when the host dissolves a waiting (pre-game) room. |
 | `room:guest-left` | _(none)_ | Sent to the host when the guest leaves the lobby before a game starts. |
-| `room:error` | `{ msg }` | Error message (e.g., wrong code, room full, room not found, stale rejoin token). |
+| `room:error` | `{ msg, code? }` | Error message. `code` discriminates bet-related rejections: `auth_required_bet` (no/invalid JWT), `escrow_failed` (insufficient credits or out-of-range), `room_taken` (race-loss after escrow), `auth_mismatch_bet` (rejoiner is not the original userId). |
 | `game:move` | `{ fr, fc, tr, tc, capCell }` | Opponent's move relayed to the receiving player. |
 | `game:sync` | `{ board, turn, capturedByWhite, capturedByBlack }` | Full board state delivered to the rejoining player so they are back in sync. |
 | `game:new` | _(none)_ | Relayed to the guest when the host starts a new game. |
@@ -529,6 +582,7 @@ This namespace handles local multiplayer via rooms. No authentication is require
 | `game:draw-offer` | _(none)_ | Relayed from opponent — show draw offer modal. |
 | `game:draw-accept` | _(none)_ | Opponent accepted draw — end game as draw. |
 | `game:draw-decline` | _(none)_ | Opponent declined draw — game continues. |
+| `game:draw-offer-rejected` | `{ reason: 'already_offered_this_turn' }` | Server rejected the offerer's duplicate offer. The relay enforces one draw offer per offerer per turn; the flag is reset only on the next `game:move`. Decline does NOT re-arm. |
 | `game:chat` | `{ text, from }` | Chat message from opponent. _(planned)_ |
 
 ---

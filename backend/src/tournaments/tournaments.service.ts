@@ -82,6 +82,33 @@ export class TournamentsService implements OnModuleInit {
     return { ok: true };
   }
 
+  /**
+   * Delete an empty tournament — only allowed when no match has a recorded
+   * result (no `winnerId` set on any match). Removes matches, participants,
+   * and the tournament row.
+   */
+  async delete(id: string) {
+    const t = await this.repo.findOne({ where: { id } });
+    if (!t) throw new NotFoundException('Tournament not found');
+
+    const playedCount = await this.matchRepo
+      .createQueryBuilder('m')
+      .where('m.tournamentId = :id', { id })
+      .andWhere('m.winnerId IS NOT NULL')
+      .getCount();
+
+    if (playedCount > 0) {
+      throw new BadRequestException(
+        'Cannot delete a tournament with played games. Cancel it instead.',
+      );
+    }
+
+    await this.matchRepo.delete({ tournamentId: id });
+    await this.partRepo.delete({ tournamentId: id });
+    await this.repo.delete(id);
+    return { ok: true };
+  }
+
   // ── PARTICIPANTS ───────────────────────────────────────────────────────────
 
   async join(tournamentId: string, userId: string) {

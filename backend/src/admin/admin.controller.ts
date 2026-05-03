@@ -10,6 +10,8 @@ import { Game } from '../games/game.entity';
 import { AdminGuard } from './admin.guard';
 import { TournamentsService } from '../tournaments/tournaments.service';
 import { Tournament } from '../tournaments/tournament.entity';
+import { Bet, BetStatus } from '../bets/bet.entity';
+import { BetsService } from '../bets/bets.service';
 import * as bcrypt from 'bcrypt';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -24,7 +26,9 @@ export class AdminController {
     @InjectRepository(Rating) private ratingRepo: Repository<Rating>,
     @InjectRepository(Game) private gameRepo: Repository<Game>,
     @InjectRepository(Tournament) private tournRepo: Repository<Tournament>,
+    @InjectRepository(Bet) private betRepo: Repository<Bet>,
     private tournSvc: TournamentsService,
+    private betsSvc: BetsService,
   ) {}
 
   /* ── Dashboard stats ─────────────────────────────── */
@@ -270,5 +274,78 @@ export class AdminController {
   @Post('tournament-schedules/:id/delete')
   deleteSchedule(@Param('id') id: string) {
     return this.tournSvc.deleteSchedule(id);
+  }
+
+  /* ── Bets ─────────────────────────────────────────── */
+
+  /**
+   * List bets, newest first. Optional status filter & username substring search.
+   * Each row is enriched with the user's username for display.
+   */
+  @Get('bets')
+  async listBets(
+    @Query('status') status?: string,
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const take = Math.min(parseInt(limit || '100', 10) || 100, 500);
+    const where: any = {};
+    if (status && Object.values(BetStatus).includes(status as BetStatus)) {
+      where.status = status;
+    }
+    let bets = await this.betRepo.find({
+      where,
+      order: { createdAt: 'DESC' },
+      take,
+    });
+    // Resolve usernames in one query
+    const userIds = Array.from(new Set(bets.map(b => b.userId).filter(Boolean)));
+    const users = userIds.length
+      ? await this.userRepo.find({ where: userIds.map(id => ({ id })), select: ['id', 'username'] })
+      : [];
+    const idToName = new Map(users.map(u => [u.id, u.username]));
+    let rows = bets.map(b => ({
+      id: b.id,
+      username: idToName.get(b.userId) || '?',
+      userId: b.userId,
+      amount: b.amount,
+      status: b.status,
+      roomId: b.roomId,
+      opponentBetId: b.opponentBetId,
+      result: b.result,
+      payout: b.payout,
+      createdAt: b.createdAt,
+      expiresAt: b.expiresAt,
+      settledAt: b.settledAt,
+    }));
+    if (q) {
+      const needle = q.toLowerCase();
+      rows = rows.filter(r => r.username.toLowerCase().includes(needle) || (r.roomId || '').toLowerCase().includes(needle));
+    }
+    return rows;
+  }
+
+  /**
+   * Aggregate counts by status — drives the dashboard chips.
+   */
+  @Get('bets/stats')
+  async betStats() {
+    const all = Object.values(BetStatus);
+    const out: Record<string, number> = {};
+    for (const s of all) {
+      out[s] = await this.betRepo.count({ where: { status: s } });
+    }
+    out.total = await this.betRepo.count();
+    return out;
+  }
+
+  /**
+   * Admin-release a frozen bet (e.g. settlement disagreement). Refunds the user's stake.
+   * Use the bets service to keep the credit-mutation in a single audited path.
+   */
+  @Post('bets/:id/refund')
+  async refundBet(@Param('id') id: string) {
+    const bet = await this.betsSvc.refund(id, null, { callerIsAdmin: true });
+    return { id: bet.id, status: bet.status, payout: bet.payout };
   }
 }

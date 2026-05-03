@@ -1,0 +1,23 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --omit=dev --ignore-scripts
+
+# Copy source (only what's needed for guest relay)
+COPY nest-cli.json tsconfig.json ./
+COPY src/guest ./src/guest
+COPY src/guest-main.ts ./src/
+
+# Install dev deps for build, then prune
+RUN npm ci --ignore-scripts && \
+    npx nest build --entryFile guest-main && \
+    npm prune --omit=dev
+
+EXPOSE 3000
+
+ENV NODE_ENV=production
+ENV GUEST_PORT=3000
+
+CMD ["node", "dist/guest-main.js"]

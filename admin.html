@@ -169,6 +169,7 @@ tr:hover{background:rgba(124,92,191,.08)}
     <button data-tab="reports" onclick="switchTab('reports',this)">Bug Reports</button>
     <button data-tab="tournaments" onclick="switchTab('tournaments',this)">Tournaments</button>
     <button data-tab="schedules" onclick="switchTab('schedules',this)">Schedules</button>
+    <button data-tab="bets" onclick="switchTab('bets',this)">Bets</button>
   </nav>
   <main>
     <section id="tab-dashboard"></section>
@@ -176,6 +177,7 @@ tr:hover{background:rgba(124,92,191,.08)}
     <section id="tab-reports" style="display:none"></section>
     <section id="tab-tournaments" style="display:none"></section>
     <section id="tab-schedules" style="display:none"></section>
+    <section id="tab-bets" style="display:none"></section>
   </main>
 </div>
 
@@ -190,9 +192,18 @@ tr:hover{background:rgba(124,92,191,.08)}
 </div>
 
 <script>
-const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? 'http://localhost:3001/api'
-  : 'https://chashki.duckdns.org/api';
+const API = (() => {
+  const isLocal = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+  // Dev override: ?api=prod (or sessionStorage.apiOverride='prod') points local preview at the production backend.
+  // sessionStorage is needed because `npx serve` redirects /admin.html → /admin and drops the query string.
+  if (isLocal) {
+    const qsOverride = new URLSearchParams(location.search).get('api');
+    if (qsOverride === 'prod') sessionStorage.setItem('apiOverride', 'prod');
+    if (qsOverride === 'local') sessionStorage.removeItem('apiOverride');
+    if (sessionStorage.getItem('apiOverride') === 'prod') return 'https://chashki.duckdns.org/api';
+  }
+  return isLocal ? 'http://localhost:3001/api' : 'https://chashki.duckdns.org/api';
+})();
 
 let adminKey = sessionStorage.getItem('adminKey') || '';
 let usersPage = 1;
@@ -247,6 +258,7 @@ function switchTab(tab, btn) {
   else if (tab === 'reports') loadReports();
   else if (tab === 'tournaments') loadTournaments();
   else if (tab === 'schedules') loadSchedules();
+  else if (tab === 'bets') loadBets();
 }
 
 /* ── Tournaments ───────────────────────────── */
@@ -257,7 +269,7 @@ async function loadTournaments() {
   const list = await apiFetch('/tournaments');
   const filtered = _tFilter === 'all' ? list : list.filter(t => t.status === _tFilter);
 
-  const fmtMap   = { single_elimination: 'SE', round_robin: 'RR', double_elimination: 'DE' };
+  const fmtMap   = { single_elimination: 'Single Elimination', round_robin: 'Round Robin', double_elimination: 'Double Elimination' };
   const rulesMap = { russian: 'RU', english: 'EN', international: 'INT' };
 
   let html = `<div class="form-card">
@@ -267,8 +279,8 @@ async function loadTournaments() {
       <div class="field"><label>Format</label>
         <select id="t-format">
           <option value="single_elimination">Single Elimination</option>
-          <option value="round_robin">Round Robin</option>
           <option value="double_elimination">Double Elimination</option>
+          <option value="round_robin">Round Robin</option>
         </select>
       </div>
       <div class="field"><label>Rules</label>
@@ -311,6 +323,7 @@ async function loadTournaments() {
       if (isPending) actions.push(`<button class="primary" onclick="startTournament('${t.id}')">▶ Start</button>`);
       if (isPending || isActive) actions.push(`<button class="danger" onclick="cancelTournament('${t.id}')">✕ Cancel</button>`);
       if (!isPending) actions.push(`<button onclick="viewBracket('${t.id}','${esc(t.name)}')">👁 View</button>`);
+      actions.push(`<button class="danger" onclick="deleteTournament('${t.id}','${esc(t.name)}')">🗑 Delete</button>`);
       html += `<tr>
         <td><strong>${esc(t.name)}</strong></td>
         <td><span class="t-status ${t.status}">${t.status}</span></td>
@@ -352,6 +365,12 @@ async function cancelTournament(id) {
   if (!confirm('Cancel this tournament?')) return;
   try { await apiFetch('/tournaments/' + id + '/cancel', { method: 'POST', body: '{}' }); loadTournaments(); }
   catch(e) { alert('Cancel failed: ' + e.message); }
+}
+
+async function deleteTournament(id, name) {
+  if (!confirm(`Permanently delete "${name}"?\n\nOnly allowed if no games have been played. This cannot be undone.`)) return;
+  try { await apiFetch('/tournaments/' + id, { method: 'DELETE' }); loadTournaments(); }
+  catch(e) { alert('Delete failed: ' + (e.message || 'tournament has played games — cancel it instead')); }
 }
 
 async function viewBracket(id, name) {
@@ -466,7 +485,7 @@ const CRON_PRESETS = [
 
 async function loadSchedules() {
   const list = await apiFetch('/tournaments/schedules/list');
-  const fmtMap   = { single_elimination: 'SE', round_robin: 'RR', double_elimination: 'DE' };
+  const fmtMap   = { single_elimination: 'Single Elimination', round_robin: 'Round Robin', double_elimination: 'Double Elimination' };
   const rulesMap = { russian: 'RU', english: 'EN', international: 'INT' };
 
   let html = `<div class="form-card">
@@ -475,9 +494,9 @@ async function loadSchedules() {
       <div class="field"><label>Name</label><input id="s-name" placeholder="Weekly Russian"></div>
       <div class="field"><label>Format</label>
         <select id="s-format">
-          <option value="single_elimination">SE</option>
-          <option value="round_robin">RR</option>
-          <option value="double_elimination">DE</option>
+          <option value="single_elimination">Single Elimination</option>
+          <option value="double_elimination">Double Elimination</option>
+          <option value="round_robin">Round Robin</option>
         </select>
       </div>
       <div class="field"><label>Rules</label>
@@ -791,6 +810,75 @@ if (adminKey) {
     document.getElementById('app').style.display = 'block';
     loadDashboard();
   }).catch(() => { sessionStorage.removeItem('adminKey'); adminKey = ''; });
+}
+
+/* ── Bets ──────────────────────────────────── */
+
+let _betFilter = '', _betQ = '';
+
+async function loadBets() {
+  const stats = await apiFetch('/admin/bets/stats').then(r => r.json()).catch(() => ({}));
+  const rows = await apiFetch('/admin/bets' + _qs({ status: _betFilter, q: _betQ, limit: 200 }))
+    .then(r => r.json()).catch(() => []);
+
+  const chip = (label, key, n, color) => `<span class="badge" style="background:${color};opacity:${(_betFilter===key||(!_betFilter&&key==='all'))?'1':'0.45'};cursor:pointer" onclick="_betFilter='${key==='all'?'':key}';loadBets()">${label}: ${n}</span>`;
+
+  let html = `<h2>Bets</h2>`;
+  html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+    ${chip('All', 'all', stats.total||0, '#374151')}
+    ${chip('Escrowed', 'escrowed', stats.escrowed||0, '#2563eb')}
+    ${chip('Settled', 'settled', stats.settled||0, '#16a34a')}
+    ${chip('Refunded', 'refunded', stats.refunded||0, '#6b7280')}
+    ${chip('Frozen', 'frozen', stats.frozen||0, '#dc2626')}
+    ${chip('Expired', 'expired', stats.expired||0, '#a16207')}
+  </div>`;
+  html += `<div style="display:flex;gap:8px;margin-bottom:12px">
+    <input id="bet-q" placeholder="Search username or roomId" value="${_betQ}" oninput="_betQ=this.value" onkeyup="if(event.key==='Enter')loadBets()" style="flex:1;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px">
+    <button onclick="loadBets()">↻ Refresh</button>
+  </div>`;
+
+  if (!rows.length) {
+    html += `<p style="color:var(--muted)">No bets match the current filter.</p>`;
+  } else {
+    html += `<div class="card"><table><thead><tr>
+      <th>Created</th><th>User</th><th>Amount</th><th>Status</th><th>Result</th><th>Payout</th><th>Room</th><th>Settled</th><th>Action</th>
+    </tr></thead><tbody>`;
+    for (const b of rows) {
+      const ts = new Date(b.createdAt).toLocaleString();
+      const settled = b.settledAt ? new Date(b.settledAt).toLocaleString() : '—';
+      const statusColor = ({ escrowed: '#2563eb', settled: '#16a34a', refunded: '#6b7280', frozen: '#dc2626', expired: '#a16207' })[b.status] || '#374151';
+      const action = b.status === 'frozen'
+        ? `<button onclick="adminRefundBet('${b.id}')" style="background:#dc2626;color:#fff">Refund</button>`
+        : '—';
+      html += `<tr>
+        <td style="white-space:nowrap;font-size:11px">${ts}</td>
+        <td>${b.username||'?'}</td>
+        <td style="text-align:right">${b.amount}💰</td>
+        <td><span class="badge" style="background:${statusColor}">${b.status}</span></td>
+        <td>${b.result||'—'}</td>
+        <td style="text-align:right">${b.payout}💰</td>
+        <td style="font-family:monospace;font-size:11px">${b.roomId||'—'}</td>
+        <td style="white-space:nowrap;font-size:11px">${settled}</td>
+        <td>${action}</td>
+      </tr>`;
+    }
+    html += `</tbody></table></div>`;
+  }
+  document.getElementById('tab-bets').innerHTML = html;
+}
+
+function _qs(params) {
+  const p = Object.entries(params).filter(([k, v]) => v !== '' && v !== null && v !== undefined);
+  return p.length ? '?' + p.map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v)).join('&') : '';
+}
+
+async function adminRefundBet(id) {
+  if (!confirm('Refund this frozen bet to the user?')) return;
+  try {
+    const res = await apiFetch('/admin/bets/' + id + '/refund', { method: 'POST', body: '{}' });
+    if (!res.ok) throw new Error(await res.text());
+    loadBets();
+  } catch (e) { alert('Refund failed: ' + e.message); }
 }
 </script>
 </body>

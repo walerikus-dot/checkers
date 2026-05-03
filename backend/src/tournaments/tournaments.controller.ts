@@ -108,6 +108,10 @@ export class TournamentsController {
   @UseGuards(AdminGuard)
   cancel(@Param('id') id: string) { return this.svc.cancel(id); }
 
+  @Delete(':id')
+  @UseGuards(AdminGuard)
+  delete(@Param('id') id: string) { return this.svc.delete(id); }
+
   @Post(':id/matches/:matchId/result')
   @UseGuards(AdminGuard)
   reportResult(

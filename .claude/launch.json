@@ -4,7 +4,7 @@
     {
       "name": "Checkers Game",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
-      "runtimeArgs": ["--yes", "serve", "-p", "4000", "C:\\Users\\valer\\Documents\\Claude\\Projects\\Checkers"],
+      "runtimeArgs": ["--yes", "serve", "-p", "4000", "."],
       "port": 4000,
       "env": {
         "PATH": "C:\\Program Files\\nodejs;${env:PATH}"

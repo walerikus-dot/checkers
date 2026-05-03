@@ -3696,20 +3696,37 @@ function _bindLongPress(){
           // Pre-stage the mirror partner: identify and prep its transition state
           const partner = (swc.id==='cp-swc-black') ? document.getElementById('cp-swc-white') : document.getElementById('cp-swc-black');
           if(partner){ partner.style.transition='none'; partner.style.zIndex='19'; _swcDrag.partner = partner; }
+          // Snapshot base rects (pre-transform) for clamping + accurate commit target
+          const cp = document.getElementById('combined-panel');
+          _swcDrag.cpRect          = cp.getBoundingClientRect();
+          _swcDrag.swcBaseRect     = swc.getBoundingClientRect();
+          _swcDrag.partnerBaseRect = partner ? partner.getBoundingClientRect() : null;
         } else {
           return; // still in long-press window
         }
       }
-      // Drag mode: dragged avatar follows pointer; partner mirrors with negated dx
-      swc.style.transform = `translateX(${dx}px) scale(1.05)`;
-      if(_swcDrag.partner) _swcDrag.partner.style.transform = `translateX(${-dx}px)`;
+      // Drag mode: clamp dx so neither avatar leaves the combined-panel bounds.
+      let clampedDx = dx;
+      const cpR = _swcDrag.cpRect, sR = _swcDrag.swcBaseRect, pR = _swcDrag.partnerBaseRect;
+      if(cpR && sR){
+        clampedDx = Math.max(cpR.left  - sR.left,  Math.min(cpR.right - sR.right,  clampedDx));
+      }
+      if(cpR && pR){
+        // Partner gets -clampedDx; constrain dx so partner.left/right also stay inside cpR.
+        clampedDx = Math.max(pR.right - cpR.right, Math.min(pR.left  - cpR.left,   clampedDx));
+      }
+      // Dragged avatar follows pointer; partner mirrors with negated dx
+      swc.style.transform = `translateX(${clampedDx}px) scale(1.05)`;
+      if(_swcDrag.partner) _swcDrag.partner.style.transform = `translateX(${-clampedDx}px)`;
     });
     const release = (e) => {
       if(!_swcDrag || _swcDrag.swc !== swc) return;
       try{ swc.releasePointerCapture?.(_swcDrag.pointerId); }catch(_){}
-      const wasDragging = _swcDrag.dragging;
-      const startX = _swcDrag.startX;
-      const partner = _swcDrag.partner;
+      const wasDragging      = _swcDrag.dragging;
+      const startX           = _swcDrag.startX;
+      const partner          = _swcDrag.partner;
+      const swcBaseRect      = _swcDrag.swcBaseRect;
+      const partnerBaseRect  = _swcDrag.partnerBaseRect;
       _swcDrag = null;
       if(!wasDragging){
         _cancelLongPress();
@@ -3720,19 +3737,23 @@ function _bindLongPress(){
       const cpR = cp.getBoundingClientRect();
       const cpMid = cpR.left + cpR.width / 2;
       const releaseX = (e && e.clientX) || startX;
-      const isLeftSwc = swc.id === 'cp-swc-black' ? !cp.classList.contains('swapped')
-                                                  :  cp.classList.contains('swapped');
+      // The dragged avatar's "side" is determined by its CURRENT DOM parent, not by any
+      // .swapped class (the avatar-only-swap rewrite removed that mechanism).
+      const isLeftSwc = (swc.parentElement?.id === 'cp-left');
       const crossed = isLeftSwc ? (releaseX > cpMid) : (releaseX < cpMid);
       const dropDragClasses = () => {
         document.getElementById('cp-left' )?.classList.remove('cp-drag-active');
         document.getElementById('cp-right')?.classList.remove('cp-drag-active');
       };
       if(crossed && _canSwapNow()){
-        const halfTravel = Math.abs(cpR.width/2 - 30);
+        // Animate to the partner's base position so the post-swap DOM teleport is invisible.
+        const targetDx = (swcBaseRect && partnerBaseRect)
+          ? (partnerBaseRect.left - swcBaseRect.left)
+          : (isLeftSwc ? Math.abs(cpR.width/2 - 30) : -Math.abs(cpR.width/2 - 30));
         swc.style.transition = 'transform 0.18s ease-out';
         partner && (partner.style.transition = 'transform 0.18s ease-out');
-        swc.style.transform  = `translateX(${isLeftSwc ? halfTravel : -halfTravel}px) scale(1)`;
-        if(partner) partner.style.transform = `translateX(${isLeftSwc ? -halfTravel : halfTravel}px) scale(1)`;
+        swc.style.transform  = `translateX(${targetDx}px) scale(1)`;
+        if(partner) partner.style.transform = `translateX(${-targetDx}px) scale(1)`;
         setTimeout(() => {
           _doSwapPlayAs(); // clears transforms + swaps avatar DOM positions in same frame
           dropDragClasses();
@@ -4030,6 +4051,9 @@ function setPlayAs(color){
   document.getElementById('pill-play-white')?.classList.toggle('on', color==='white');
   document.getElementById('pill-play-black')?.classList.toggle('on', color==='black');
   localStorage.setItem('checkers-play-as', color);
+  // Keep the combined-panel avatar DOM positions in phase with playerColor
+  // (idempotent: drag-commit already moved them, this is a no-op there).
+  if(typeof _syncCpAvatarPositions === 'function') _syncCpAvatarPositions();
   _updateBoardHint();
   if(gameMode==='ai') _startNewGame();
 }
